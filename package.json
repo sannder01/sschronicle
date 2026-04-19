@@ -1,0 +1,30 @@
+{
+  "name": "chronicle",
+  "version": "2.0.0",
+  "private": true,
+  "engines": {
+    "node": ">=18.17.0"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "migrate": "node scripts/migrate.js",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "14.2.5",
+    "next-auth": "^4.24.7",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "pg": "^8.12.0",
+    "bcryptjs": "^2.4.3",
+    "@studio-freight/lenis": "^1.0.42",
+    "gsap": "^3.12.5"
+  },
+  "devDependencies": {
+    "dotenv": "^16.4.5",
+    "eslint": "^8",
+    "eslint-config-next": "14.2.5"
+  }
+}
