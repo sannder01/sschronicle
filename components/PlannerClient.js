@@ -7,6 +7,8 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { signOut, useSession } from 'next-auth/react'
+import CalendarView from './CalendarView'
+import CharacterPanel from './CharacterPanel'
 
 // ═══════════════════════════════════════════════════════════════════
 //  THEMES (logic preserved, extended with new tokens)
@@ -621,6 +623,16 @@ export default function PlannerClient() {
                 </div>
               )}
 
+              {/* Calendar button */}
+              <button
+                className="pc-btn-ghost pc-btn-sm pc-cal-btn"
+                style={{ color: t.textSub, borderColor: t.cardBorder, padding: '8px 10px' }}
+                onClick={() => setShowCalendar(true)}
+                title="Календарь задач"
+              >
+                <CalendarIcon />
+              </button>
+
               <button className="pc-add-btn" style={{ background: `linear-gradient(135deg, ${t.primary}, ${t.primaryEnd})`, boxShadow: `0 4px 20px ${t.glow}` }}
                 onClick={() => setShowForm(true)}>
                 <span>+</span>
@@ -735,7 +747,16 @@ export default function PlannerClient() {
             )}
           </div>
 
-          {/* ── BOTTOM DEBUG ── */}
+          {/* ── CALENDAR VIEW ── */}
+      {showCalendar && (
+        <CalendarView
+          tasks={tasks}
+          theme={t}
+          onClose={() => setShowCalendar(false)}
+        />
+      )}
+
+      {/* ── BOTTOM DEBUG ── */}
           <button onClick={runDebug} className="pc-debug-btn" style={{ color: t.textMuted, borderColor: t.cardBorder }}>
             debug
           </button>
@@ -771,27 +792,13 @@ function Sidebar({
         <div className="pc-user-email" style={{ color: t.textMuted }}>{session?.user?.email}</div>
       </div>
 
-      {/* Rank panel */}
-      <div className="pc-rank-panel" style={{ background: t.card, borderColor: `${rankInfo.color}22`, boxShadow: `0 0 32px ${rankInfo.glow}15` }}>
-        <div className="pc-rank-row">
-          <div>
-            <div className="pc-rank-label-small" style={{ color: t.textMuted }}>РАНГ</div>
-            <div className="pc-rank-badge" style={{ color: rankInfo.color, textShadow: `0 0 20px ${rankInfo.glow}` }}>
-              {rankInfo.rank}
-            </div>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <div className="pc-rank-label-small" style={{ color: t.textMuted }}>XP</div>
-            <div className="pc-xp-number" style={{ color: t.text }}>{xp.toLocaleString()}</div>
-          </div>
-        </div>
-        <div className="pc-rank-title" style={{ color: t.textSub }}>{rankInfo.label}</div>
-        <div className="pc-xp-track" style={{ background: t.surface }}>
-          <div className="pc-xp-fill xp-bar-fill" style={{ width: `${xpProgress}%`, background: `linear-gradient(90deg, ${rankInfo.color}, ${t.primary})`, boxShadow: `0 0 10px ${rankInfo.glow}60` }} />
-        </div>
-        {xpNeeded > 0 && (
-          <div className="pc-xp-needed" style={{ color: t.textMuted }}>до следующего: {xpNeeded} XP</div>
-        )}
+      {/* Character / Rank Panel */}
+      <div style={{ margin: '12px 10px' }}>
+        <CharacterPanel
+          xp={xp}
+          completedCount={tasks.filter(tk => tk.completed).length}
+          theme={t}
+        />
       </div>
 
       {/* Folders */}
@@ -1037,6 +1044,17 @@ function PaletteIcon() {
 }
 function TelegramIcon() {
   return <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M14 2L1 7l5 2 2 5 2-4 4-8z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" /></svg>
+}
+function CalendarIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <rect x="1" y="3" width="14" height="12" rx="2" stroke="currentColor" strokeWidth="1.2" />
+      <path d="M5 1v3M11 1v3M1 7h14" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+      <circle cx="5.5" cy="10.5" r="0.8" fill="currentColor" />
+      <circle cx="8.5" cy="10.5" r="0.8" fill="currentColor" />
+      <circle cx="11.5" cy="10.5" r="0.8" fill="currentColor" />
+    </svg>
+  )
 }
 function LogoutIcon() {
   return <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 3h3a1 1 0 011 1v8a1 1 0 01-1 1h-3M7 11l4-3-4-3M1 8h9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" /></svg>
@@ -1660,18 +1678,104 @@ html, body {
   animation: pc-fade-in 0.2s ease;
 }
 
-/* ── Responsive ── */
-@media (max-width: 768px) {
-  .sidebar-desktop { display: none !important; }
-  .pc-menu-btn { display: flex !important; }
-  .pc-add-btn-label { display: none; }
-  .pc-task-list { padding: 16px 16px 32px; }
-  .pc-header { padding: 14px 16px; }
-  .pc-header-progress { display: none; }
-}
+/* ── Responsive — глубокая адаптивность ── */
 
+/* DESKTOP (>= 769px) */
 @media (min-width: 769px) {
   .mobile-sidebar-btn { display: none !important; }
-  .sidebar-desktop { display: flex !important; }
+  .sidebar-desktop    { display: flex !important; }
+  .pc-mobile-only     { display: none !important; }
+  .pc-fab             { display: none !important; }
 }
+
+/* TABLET (481px – 768px) */
+@media (max-width: 768px) {
+  .sidebar-desktop     { display: none !important; }
+  .pc-menu-btn         { display: flex !important; }
+  .pc-header           { padding: 12px 14px; gap: 8px; }
+  .pc-header-right     { gap: 8px; }
+  .pc-header-progress  { display: none; }
+  .pc-add-btn-label    { display: none; }
+  .pc-add-btn          { padding: 10px 12px; }
+  .pc-cal-btn          { display: none; }
+  .pc-task-list        { padding: 14px 14px 80px; gap: 7px; }
+  .pc-task             { padding: 12px 14px; gap: 10px; }
+  .pc-task-title       { font-size: 14px; }
+  .pc-task-meta        { flex-wrap: wrap; gap: 4px; }
+  .pc-form-wrapper     { padding: 12px 14px 0; }
+  .pc-form             { padding: 16px 16px 18px; }
+  .pc-form-row         { grid-template-columns: 1fr; gap: 8px; }
+  .pc-form-footer      { flex-direction: column; gap: 8px; }
+  .pc-btn-primary,
+  .pc-btn-ghost        { width: 100%; text-align: center; justify-content: center; }
+  .pc-modal            { width: calc(100vw - 32px); max-width: 380px; padding: 22px 18px; }
+  .pc-modal-wide       { max-width: 98vw; }
+  .pc-theme-grid       { grid-template-columns: repeat(2, 1fr) !important; }
+  .pc-debug-btn        { margin: 0 14px 16px; }
+}
+
+/* MOBILE (max 480px) */
+@media (max-width: 480px) {
+  .pc-header               { padding: 10px 12px; }
+  .pc-header-folder-name   { font-size: 14px; }
+  .pc-header-count         { display: none; }
+  .pc-task-list            { padding: 10px 10px 88px; gap: 6px; }
+  .pc-task                 { padding: 10px 12px; gap: 8px; border-radius: 13px; }
+  .pc-task-title           { font-size: 13px; line-height: 1.4; margin-bottom: 6px; }
+  .pc-checkbox             { width: 20px; height: 20px; border-radius: 5px; }
+  .pc-form-wrapper         { padding: 10px 10px 0; }
+  .pc-form                 { padding: 14px 14px 16px; border-radius: 14px; }
+  .pc-input-title          { font-size: 14px; }
+  .pc-input                { font-size: 14px; padding: 9px 12px; }
+  .pc-priority-badge       { font-size: 10px; padding: 2px 6px; }
+  .pc-days-badge           { font-size: 10px; padding: 2px 6px; }
+  .pc-levelup-card         { padding: 28px 24px; }
+  .pc-levelup-rank         { font-size: 64px !important; }
+  .pc-levelup-name         { font-size: 14px; }
+  .pc-modal                { padding: 20px 16px; border-radius: 18px; }
+  .pc-modal-actions        { flex-direction: column; gap: 8px; }
+  .pc-modal-actions button { width: 100%; }
+  .pc-theme-grid           { grid-template-columns: repeat(2, 1fr) !important; }
+  .pc-folder-name          { font-size: 12px; }
+  .pc-float-xp             { font-size: 18px !important; bottom: 100px; right: 20px; }
+}
+
+/* EXTRA SMALL (max 360px) */
+@media (max-width: 360px) {
+  .pc-task-title   { font-size: 12px; }
+  .pc-header       { padding: 8px 10px; }
+  .pc-task         { padding: 8px 10px; }
+  .pc-theme-grid   { grid-template-columns: 1fr !important; }
+}
+
+/* FAB — floating add button on mobile */
+@media (max-width: 768px) {
+  .pc-fab {
+    position: fixed; bottom: 22px; right: 16px; z-index: 90;
+    width: 56px; height: 56px; border-radius: 50%; border: none;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 6px 28px rgba(0,0,0,0.55);
+    font-size: 26px; color: #fff;
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .pc-fab:active { transform: scale(0.9); }
+}
+
+/* Touch-friendly tap targets */
+@media (pointer: coarse) {
+  .pc-folder-item  { padding: 11px 12px; min-height: 44px; }
+  .pc-sidebar-btn  { min-height: 44px; }
+  .pc-task         { min-height: 52px; }
+  .pc-checkbox     { width: 24px; height: 24px; }
+  .pc-btn-primary,
+  .pc-btn-ghost,
+  .pc-btn-danger   { min-height: 44px; }
+  .pc-input        { min-height: 44px; }
+  .pc-task-delete  { opacity: 0.4 !important; width: 32px; height: 32px; }
+}
+
+/* Prevent overflow */
+*, *::before, *::after { box-sizing: border-box; }
+.pc-root { overflow-x: hidden; max-width: 100vw; }
 `;
