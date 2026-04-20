@@ -1,3 +1,18 @@
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { query } from '@/lib/db'
+
+export async function GET(req) {
+  const session = await getServerSession(authOptions)
+  if (!session?.user?.id) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const result = await query(
+    `SELECT * FROM tasks WHERE user_id = $1 ORDER BY created_at DESC`,
+    [session.user.id]
+  )
+  return Response.json(result.rows)
+}
+
 export async function POST(req) {
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) return Response.json({ error: 'Unauthorized' }, { status: 401 })
