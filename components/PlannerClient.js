@@ -178,6 +178,7 @@ export default function PlannerClient() {
   const [showSettings, setShowSettings] = useState(false)
   const [debugInfo, setDebugInfo] = useState(null)
   const [showDebug, setShowDebug] = useState(false)
+  const [showCalendar, setShowCalendar] = useState(false)
 
   const canvasRef = useRef(null)
   const animRef = useRef(null)
