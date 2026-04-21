@@ -1,12 +1,11 @@
-// app/api/tasks/[id]/route.js  — ПОЛНАЯ ЗАМЕНА
-// Синхронизация с Telegram при изменении статуса задачи
+// app/api/tasks/[id]/route.js
 
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { query } from '@/lib/db'
 
 // ── Notify Telegram on task status change
-async function notifyTelegramCompleted(userId, task) {
+async function notifyTelegramStatusChange(userId, task) {
   try {
     const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN
     if (!BOT_TOKEN) return
@@ -15,10 +14,11 @@ async function notifyTelegramCompleted(userId, task) {
     const chatId = conn.rows[0]?.chat_id
     if (!chatId) return
 
-    if (!task.completed) return // Only notify on completion
-
     const xp = task.priority === 'high' ? 50 : task.priority === 'medium' ? 25 : 10
-    const text = `✅ *Задача выполнена!*\n\n📋 ${task.title}\n+${xp} XP`
+
+    const text = task.completed
+      ? `✅ *Задача выполнена!*\n\n📋 ${task.title}\n+${xp} XP`
+      : `↩️ *Выполнение отменено*\n\n📋 ${task.title}\n-${xp} XP`
 
     await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
       method: 'POST',
@@ -69,8 +69,10 @@ export async function PATCH(req, { params }) {
   if (!result.rows.length) return Response.json({ error: 'Not found' }, { status: 404 })
   const updated = result.rows[0]
 
-  // Fire-and-forget notify
-  notifyTelegramCompleted(session.user.id, updated)
+  // Notify on completed OR un-completed
+  if (updates.completed !== undefined) {
+    notifyTelegramStatusChange(session.user.id, updated)
+  }
 
   return Response.json(updated)
 }
