@@ -171,9 +171,7 @@ export default function PlannerClient() {
   const [folderForm, setFolderForm] = useState({ name: '', emoji: '◆', color: '#8B5CF6' })
 
   const [deleteConfirm, setDeleteConfirm] = useState(null)
-  const [showTgPanel, setShowTgPanel] = useState(false)
-  const [tgChatId, setTgChatId] = useState('')
-  const [tgSaved, setTgSaved] = useState(false)
+  const [showTgPanel, setShowTgPanel] = useState(false) // kept for prop compatibility, panel removed
   const [showThemePanel, setShowThemePanel] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [debugInfo, setDebugInfo] = useState(null)
@@ -190,11 +188,10 @@ export default function PlannerClient() {
   // ── Init ────────────────────────────────────────────────────────
   useEffect(() => {
     const savedTheme = localStorage.getItem('chronicle_theme') || 'void'
-    const savedXP = parseInt(localStorage.getItem('chronicle_xp') || '0')
-    const savedTg = localStorage.getItem('chronicle_tg_chat_id') || ''
     if (THEMES[savedTheme]) setThemeKey(savedTheme)
-    setXp(savedXP)
-    setTgChatId(savedTg)
+    // NOTE: XP is no longer loaded from localStorage here.
+    // loadData() recalculates XP from actual completed tasks in DB,
+    // so it's always accurate and won't drift across devices/sessions.
     loadData()
   }, [])
 
@@ -306,14 +303,13 @@ export default function PlannerClient() {
       const safeTasks = Array.isArray(tasksData) ? tasksData : []
       setTasks(safeTasks)
       setFolders(Array.isArray(foldersData) ? foldersData : [])
-  
-      // Считаем XP из реальных выполненных задач в БД — не из localStorage
+      // FIX BUG 5: Always derive XP from actual completed tasks in DB.
+      // localStorage XP was getting out of sync on reload / other devices.
       const calculatedXP = safeTasks
         .filter(t => t.completed)
         .reduce((sum, t) => sum + getXP(t.priority), 0)
       setXp(calculatedXP)
       localStorage.setItem('chronicle_xp', String(calculatedXP))
-  
       localStorage.setItem('chronicle_tasks_cache', JSON.stringify(safeTasks))
       localStorage.setItem('chronicle_folders_cache', JSON.stringify(foldersData))
     } catch {
@@ -322,16 +318,15 @@ export default function PlannerClient() {
       if (ct) {
         const cached = JSON.parse(ct)
         setTasks(cached)
-        // XP из кэша тоже пересчитываем, а не берём устаревшее значение
-        const cachedXP = cached
-          .filter(t => t.completed)
-          .reduce((sum, t) => sum + getXP(t.priority), 0)
+        // Also recalculate XP from cache so it doesn't drift
+        const cachedXP = cached.filter(t => t.completed).reduce((sum, t) => sum + getXP(t.priority), 0)
         setXp(cachedXP)
       }
       if (cf) setFolders(JSON.parse(cf))
     }
     setLoading(false)
   }
+
   // ── Task CRUD (logic unchanged) ──────────────────────────────────
   async function createTask(e) {
     e.preventDefault()
@@ -360,10 +355,13 @@ export default function PlannerClient() {
 
   async function toggleTask(task) {
     const was = task.completed
+    // Capture current XP for rollback
+    const prevXp = xp
     const updated = tasks.map(tk => tk.id === task.id ? { ...tk, completed: !was } : tk)
     setTasks(updated)
     localStorage.setItem('chronicle_tasks_cache', JSON.stringify(updated))
     if (!was) {
+      // Completing: award XP optimistically
       const earned = getXP(task.priority)
       const newXp = xp + earned
       const oldRank = getRank(xp); const newRank = getRank(newXp)
@@ -373,13 +371,27 @@ export default function PlannerClient() {
       setTimeout(() => setFloatingXP(prev => prev.filter(x => x.id !== id)), 2000)
       if (oldRank.rank !== newRank.rank) { setLevelUpData(newRank); setTimeout(() => setLevelUpData(null), 4000) }
     } else {
+      // Un-completing: subtract XP optimistically
       const newXp = Math.max(0, xp - getXP(task.priority))
       setXp(newXp); localStorage.setItem('chronicle_xp', String(newXp))
     }
     try {
-      const res = await fetch(`/api/tasks/${task.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ completed: !was }) })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    } catch { setTasks(tasks) , setXp(xp) , localStorage.setItem('chronicle_xp', String(xp)) }
+      // FIX BUG 1: Check HTTP status, not just network errors.
+      // Non-OK responses (4xx/5xx) were silently ignored before — task appeared
+      // completed in UI but DB wasn't updated, so it reset on next reload.
+      const res = await fetch(`/api/tasks/${task.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ completed: !was })
+      })
+      if (!res.ok) throw new Error(`Server error ${res.status}`)
+    } catch {
+      // Rollback both tasks AND XP — keeps them in sync
+      setTasks(tasks)
+      localStorage.setItem('chronicle_tasks_cache', JSON.stringify(tasks))
+      setXp(prevXp)
+      localStorage.setItem('chronicle_xp', String(prevXp))
+    }
   }
 
   async function deleteTask(id) {
@@ -412,11 +424,6 @@ export default function PlannerClient() {
     try { await fetch(`/api/folders/${id}`, { method: 'DELETE' }) } catch {}
   }
 
-  async function saveTgChatId() {
-    localStorage.setItem('chronicle_tg_chat_id', tgChatId)
-    try { await fetch('/api/tg-connect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chatId: tgChatId }) }) } catch {}
-    setTgSaved(true); setTimeout(() => setTgSaved(false), 2000)
-  }
 
   function handleSignOut() { signOut({ callbackUrl: '/auth' }) }
 
@@ -527,8 +534,11 @@ export default function PlannerClient() {
         </div>
       )}
 
-      {/* ── TG PANEL ── */}
-      
+      {/* ── TG PANEL REMOVED ──
+          Bot now sends notifications automatically when linked via /link command.
+          Bot link is shown in the sidebar instead.
+      */}
+
       {/* ── DEBUG PANEL ── */}
       {showDebug && debugInfo && (
         <div className="pc-overlay" onClick={() => setShowDebug(false)}>
@@ -561,7 +571,7 @@ export default function PlannerClient() {
             createFolder={createFolder} deleteFolder={deleteFolder}
             session={session} onSignOut={handleSignOut}
             rankInfo={rankInfo} xp={xp} xpProgress={xpProgress} xpNeeded={xpNeeded}
-            setShowThemePanel={setShowThemePanel} setShowTgPanel={setShowTgPanel}
+            setShowThemePanel={setShowThemePanel}
             isMobile={false}
           />
         </aside>
@@ -578,7 +588,7 @@ export default function PlannerClient() {
               createFolder={createFolder} deleteFolder={deleteFolder}
               session={session} onSignOut={handleSignOut}
               rankInfo={rankInfo} xp={xp} xpProgress={xpProgress} xpNeeded={xpNeeded}
-              setShowThemePanel={setShowThemePanel} setShowTgPanel={setShowTgPanel}
+              setShowThemePanel={setShowThemePanel}
               isMobile={true}
             />
           </aside>
@@ -772,7 +782,7 @@ function Sidebar({
   createFolder, deleteFolder,
   session, onSignOut,
   rankInfo, xp, xpProgress, xpNeeded,
-  setShowThemePanel, setShowTgPanel,
+  setShowThemePanel,
   isMobile,
 }) {
   return (
@@ -875,7 +885,17 @@ function Sidebar({
       {/* Bottom actions */}
       <div className="pc-sidebar-bottom" style={{ borderTopColor: t.cardBorder }}>
         <SidebarBtn icon={<PaletteIcon />} label="Тема" onClick={() => setShowThemePanel(true)} t={t} />
-        <SidebarBtn icon={<TelegramIcon />} label="Telegram" onClick={() => setShowTgPanel(true)} t={t} />
+        <a
+          href="https://t.me/chroniclenotifybot"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="pc-sidebar-btn sidebar-action-btn pc-bot-link"
+          style={{ color: t.textSub, textDecoration: 'none' }}
+          title="Открыть Telegram бот"
+        >
+          <span className="pc-sidebar-btn-icon"><TelegramIcon /></span>
+          Telegram бот
+        </a>
         <SidebarBtn icon={<LogoutIcon />} label="Выйти" onClick={onSignOut} t={t} danger />
       </div>
     </div>
@@ -1773,4 +1793,43 @@ html, body {
 /* Prevent overflow */
 *, *::before, *::after { box-sizing: border-box; }
 .pc-root { overflow-x: hidden; max-width: 100vw; }
+
+/* Safe-area insets for notch/home-bar phones */
+@supports (padding: max(0px)) {
+  .pc-header    { padding-top: max(16px, env(safe-area-inset-top)); }
+  .pc-task-list { padding-bottom: max(88px, calc(72px + env(safe-area-inset-bottom))); }
+  .pc-fab       { bottom: max(22px, calc(16px + env(safe-area-inset-bottom))); }
+}
+
+/* Prevent body bounce showing white on dark backgrounds */
+html, body { background: #030407; overflow-x: hidden; }
+
+/* Mobile: sidebar width adapts to very narrow screens */
+@media (max-width: 360px) {
+  .pc-sidebar { width: min(260px, 88vw) !important; }
+  .pc-sidebar-btn { padding: 8px 10px; font-size: 12px; }
+  .pc-sidebar-logo { padding: 14px 12px 10px; }
+}
+
+/* Mobile: task delete always visible (no hover on touch) */
+@media (pointer: coarse) {
+  .pc-task-delete  { opacity: 0.45 !important; }
+  /* bot link tap target */
+  .pc-bot-link { min-height: 44px; display: flex; align-items: center; }
+}
+
+/* Mobile header: prevent right-side overflow */
+@media (max-width: 480px) {
+  .pc-header-right { max-width: calc(100vw - 160px); overflow: hidden; flex-wrap: nowrap; }
+}
+
+/* Bot link in sidebar — styled same as SidebarBtn */
+.pc-bot-link {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px; border-radius: 10px; border: none;
+  font-size: 13px; font-weight: 500; cursor: pointer;
+  transition: opacity 0.15s; width: 100%;
+}
+.pc-bot-link:hover { opacity: 0.75; }
 `;
+
