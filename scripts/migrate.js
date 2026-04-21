@@ -89,6 +89,7 @@ async function migrate() {
         title       TEXT NOT NULL,
         completed   BOOLEAN DEFAULT FALSE,
         due_date    DATE,
+        due_time    TEXT,
         priority    TEXT DEFAULT 'medium',
         folder_id   INTEGER REFERENCES folders(id) ON DELETE SET NULL,
         notified_1h BOOLEAN DEFAULT FALSE,
@@ -96,6 +97,8 @@ async function migrate() {
         created_at  TIMESTAMPTZ DEFAULT NOW()
       )
     `)
+    // Add due_time to existing tables if missing
+    await client.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS due_time TEXT`)
     console.log('✅ tasks table ready')
 
     // ── Telegram connections ─────────────────────────────────────
