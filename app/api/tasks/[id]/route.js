@@ -43,7 +43,7 @@ export async function PATCH(req, { params }) {
   const { id } = await params
   const updates = await req.json()
 
-  const allowed = ['completed', 'title', 'due_date', 'priority', 'folder_id']
+  const allowed = ['completed', 'title', 'due_date', 'due_time', 'priority', 'folder_id']
   const fields = []
   const vals = []
   let idx = 1
