@@ -48,7 +48,7 @@ export async function PATCH(req, { params }) {
 
   if (!fields.length) return Response.json({ error: 'Nothing to update' }, { status: 400 })
 
-  fields.push(`updated_at = NOW()`)
+  // updated_at column does not exist in schema — removed
   vals.push(id, session.user.id)
 
   const result = await query(
