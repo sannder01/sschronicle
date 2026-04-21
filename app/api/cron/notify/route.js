@@ -46,7 +46,7 @@ export async function GET(req) {
       await sendTgMessage(task.chat_id,
         `⚠️ <b>Дедлайн через 1 час!</b>\n\n` +
         `📌 <b>${task.title}</b>\n` +
-        `🕐 Срок: ${new Date(task.due_date).toLocaleString('ru-RU')}\n\n` +
+        `🕐 Срок: ${task.due_date} ${task.due_time || ''}\\n\\n` +
         `🔗 <a href="${process.env.NEXTAUTH_URL}/app">Открыть Chronicle</a>`
       )
       await query(
@@ -72,7 +72,7 @@ export async function GET(req) {
       await sendTgMessage(task.chat_id,
         `🔶 <b>Дедлайн завтра!</b>\n\n` +
         `📌 <b>${task.title}</b>\n` +
-        `📅 Срок: ${new Date(task.due_date).toLocaleDateString('ru-RU', { day: '2-digit', month: 'long', year: 'numeric' })}\n\n` +
+        `📅 Срок: ${new Date(task.due_date + 'T12:00:00Z').toLocaleDateString('ru-RU', { day: '2-digit', month: 'long', year: 'numeric' })}\\n\\n` +
         `🔗 <a href="${process.env.NEXTAUTH_URL}/app">Открыть Chronicle</a>`
       )
       await query(
