@@ -4,7 +4,6 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { query } from '@/lib/db'
 
-// ── Notify Telegram on task status change
 async function notifyTelegramStatusChange(userId, task) {
   try {
     const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN
@@ -54,6 +53,13 @@ export async function PATCH(req, { params }) {
       fields.push(`${key} = $${idx++}`)
       vals.push(updates[key])
     }
+  }
+
+  // FIX: sync status field with completed so Telegram bot shows correct icon
+  // Bot uses `status` field: 'done' = ✅, 'todo' = 🔲
+  if (updates.completed !== undefined) {
+    fields.push(`status = $${idx++}`)
+    vals.push(updates.completed ? 'done' : 'todo')
   }
 
   if (!fields.length) return Response.json({ error: 'Nothing to update' }, { status: 400 })
