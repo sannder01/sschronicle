@@ -886,7 +886,7 @@ function Sidebar({
       <div className="pc-sidebar-bottom" style={{ borderTopColor: t.cardBorder }}>
         <SidebarBtn icon={<PaletteIcon />} label="Тема" onClick={() => setShowThemePanel(true)} t={t} />
         <a
-          href="https://t.me/chroniclenotifybot"
+          href="https://t.me/sannder01_Bot"
           target="_blank"
           rel="noopener noreferrer"
           className="pc-sidebar-btn sidebar-action-btn pc-bot-link"
