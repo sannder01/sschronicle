@@ -17,12 +17,22 @@ async function notifyTelegramCompleted(userId, task) {
 
     if (!task.completed) return // Only notify on completion
 
-    const text = `✅ *Задача выполнена!*\n\n📋 ${task.title}\n+${task.priority === 'high' ? 50 : task.priority === 'medium' ? 25 : 10} XP`
+    const xp = task.priority === 'high' ? 50 : task.priority === 'medium' ? 25 : 10
+    const text = `✅ *Задача выполнена!*\n\n📋 ${task.title}\n+${xp} XP`
 
     await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'Markdown' }),
+      body: JSON.stringify({
+        chat_id: chatId,
+        text,
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [[
+            { text: '🔄 Обновить список задач', callback_data: 'tm_pg_0' }
+          ]]
+        }
+      }),
     })
   } catch {}
 }
