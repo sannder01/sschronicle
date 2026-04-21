@@ -303,19 +303,35 @@ export default function PlannerClient() {
       const [tasksRes, foldersRes] = await Promise.all([fetch('/api/tasks'), fetch('/api/folders')])
       const tasksData = await tasksRes.json()
       const foldersData = await foldersRes.json()
-      setTasks(Array.isArray(tasksData) ? tasksData : [])
+      const safeTasks = Array.isArray(tasksData) ? tasksData : []
+      setTasks(safeTasks)
       setFolders(Array.isArray(foldersData) ? foldersData : [])
-      localStorage.setItem('chronicle_tasks_cache', JSON.stringify(tasksData))
+  
+      // Считаем XP из реальных выполненных задач в БД — не из localStorage
+      const calculatedXP = safeTasks
+        .filter(t => t.completed)
+        .reduce((sum, t) => sum + getXP(t.priority), 0)
+      setXp(calculatedXP)
+      localStorage.setItem('chronicle_xp', String(calculatedXP))
+  
+      localStorage.setItem('chronicle_tasks_cache', JSON.stringify(safeTasks))
       localStorage.setItem('chronicle_folders_cache', JSON.stringify(foldersData))
     } catch {
       const ct = localStorage.getItem('chronicle_tasks_cache')
       const cf = localStorage.getItem('chronicle_folders_cache')
-      if (ct) setTasks(JSON.parse(ct))
+      if (ct) {
+        const cached = JSON.parse(ct)
+        setTasks(cached)
+        // XP из кэша тоже пересчитываем, а не берём устаревшее значение
+        const cachedXP = cached
+          .filter(t => t.completed)
+          .reduce((sum, t) => sum + getXP(t.priority), 0)
+        setXp(cachedXP)
+      }
       if (cf) setFolders(JSON.parse(cf))
     }
     setLoading(false)
   }
-
   // ── Task CRUD (logic unchanged) ──────────────────────────────────
   async function createTask(e) {
     e.preventDefault()
@@ -361,8 +377,9 @@ export default function PlannerClient() {
       setXp(newXp); localStorage.setItem('chronicle_xp', String(newXp))
     }
     try {
-      await fetch(`/api/tasks/${task.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ completed: !was }) })
-    } catch { setTasks(tasks) }
+      const res = await fetch(`/api/tasks/${task.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ completed: !was }) })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    } catch { setTasks(tasks) , setXp(xp) , localStorage.setItem('chronicle_xp', String(xp)) }
   }
 
   async function deleteTask(id) {
@@ -511,30 +528,7 @@ export default function PlannerClient() {
       )}
 
       {/* ── TG PANEL ── */}
-      {showTgPanel && (
-        <div className="pc-overlay" onClick={() => setShowTgPanel(false)}>
-          <div className="pc-modal" onClick={e => e.stopPropagation()} style={{ background: t.card, backdropFilter: 'blur(32px)', borderColor: t.cardBorder }}>
-            <div className="pc-modal-title" style={{ color: t.text }}>Telegram-уведомления</div>
-            <div className="pc-modal-sub" style={{ color: t.textSub }}>
-              Напиши <span style={{ color: t.primary, fontFamily: 'var(--font-mono)' }}>@chroniclenotifybot</span> команду <span style={{ color: t.primary, fontFamily: 'var(--font-mono)' }}>/start</span> и вставь свой Chat ID:
-            </div>
-            <input
-              className="pc-input"
-              style={{ background: t.inputBg, borderColor: t.cardBorder, color: t.text }}
-              placeholder="Твой Telegram Chat ID"
-              value={tgChatId}
-              onChange={e => setTgChatId(e.target.value)}
-            />
-            <div className="pc-modal-actions">
-              <button className="pc-btn-ghost" style={{ color: t.textSub, borderColor: t.cardBorder }} onClick={() => setShowTgPanel(false)}>Закрыть</button>
-              <button className="pc-btn-primary" style={{ background: `linear-gradient(135deg, ${t.primary}, ${t.primaryEnd})`, boxShadow: `0 4px 20px ${t.glow}` }} onClick={saveTgChatId}>
-                {tgSaved ? '✓ Сохранено' : 'Сохранить'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
+      
       {/* ── DEBUG PANEL ── */}
       {showDebug && debugInfo && (
         <div className="pc-overlay" onClick={() => setShowDebug(false)}>
