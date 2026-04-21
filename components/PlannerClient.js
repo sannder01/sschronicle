@@ -164,7 +164,7 @@ export default function PlannerClient() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const [showForm, setShowForm] = useState(false)
-  const [formData, setFormData] = useState({ title: '', due_date: '', priority: 'medium', folder_id: '' })
+  const [formData, setFormData] = useState({ title: '', due_date: '', due_time: '', priority: 'medium', folder_id: '' })
   const [formError, setFormError] = useState('')
 
   const [showFolderForm, setShowFolderForm] = useState(false)
@@ -341,14 +341,14 @@ export default function PlannerClient() {
       const res = await fetch('/api/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: formData.title.trim(), due_date: formData.due_date || null, priority: formData.priority, folder_id: fId }),
+        body: JSON.stringify({ title: formData.title.trim(), due_date: formData.due_date || null, due_time: formData.due_time || null, priority: formData.priority, folder_id: fId }),
       })
       if (!res.ok) { const e = await res.json().catch(() => ({})); setFormError(e.error || `Ошибка ${res.status}`); return }
       const created = await res.json()
       const updated = [created, ...tasks]
       setTasks(updated)
       localStorage.setItem('chronicle_tasks_cache', JSON.stringify(updated))
-      setFormData({ title: '', due_date: '', priority: 'medium', folder_id: '' })
+      setFormData({ title: '', due_date: '', due_time: '', priority: 'medium', folder_id: '' })
       setShowForm(false)
     } catch { setFormError('Ошибка соединения') }
   }
@@ -674,14 +674,22 @@ export default function PlannerClient() {
                   <div className="pc-form-field">
                     <label style={{ color: t.textSub }}>Дата</label>
                     <input type="date" className="pc-input"
-                      style={{ background: t.inputBg, borderColor: t.cardBorder, color: t.text }}
+                      style={{ background: t.inputBg, borderColor: t.cardBorder, color: t.text, colorScheme: 'dark' }}
                       value={formData.due_date}
                       onChange={e => setFormData({ ...formData, due_date: e.target.value })}
                     />
                   </div>
                   <div className="pc-form-field">
+                    <label style={{ color: t.textSub }}>Время</label>
+                    <input type="time" className="pc-input"
+                      style={{ background: t.inputBg, borderColor: t.cardBorder, color: t.text, colorScheme: 'dark' }}
+                      value={formData.due_time}
+                      onChange={e => setFormData({ ...formData, due_time: e.target.value })}
+                    />
+                  </div>
+                  <div className="pc-form-field">
                     <label style={{ color: t.textSub }}>Приоритет</label>
-                    <select className="pc-input"
+                    <select className="pc-input pc-select"
                       style={{ background: t.inputBg, borderColor: t.cardBorder, color: t.text }}
                       value={formData.priority}
                       onChange={e => setFormData({ ...formData, priority: e.target.value })}>
@@ -692,7 +700,7 @@ export default function PlannerClient() {
                   </div>
                   <div className="pc-form-field">
                     <label style={{ color: t.textSub }}>Папка</label>
-                    <select className="pc-input"
+                    <select className="pc-input pc-select"
                       style={{ background: t.inputBg, borderColor: t.cardBorder, color: t.text }}
                       value={formData.folder_id}
                       onChange={e => setFormData({ ...formData, folder_id: e.target.value })}>
@@ -886,7 +894,7 @@ function Sidebar({
       <div className="pc-sidebar-bottom" style={{ borderTopColor: t.cardBorder }}>
         <SidebarBtn icon={<PaletteIcon />} label="Тема" onClick={() => setShowThemePanel(true)} t={t} />
         <a
-          href="https://t.me/sannder01_Bot"
+          href="https://t.me/chroniclenotifybot"
           target="_blank"
           rel="noopener noreferrer"
           className="pc-sidebar-btn sidebar-action-btn pc-bot-link"
@@ -965,6 +973,7 @@ function TaskCard({ task, t, index, onToggle, onDelete, folders, completed }) {
           {task.due_date && (
             <span className="pc-due-date" style={{ color: completed ? t.textMuted : daysColor }}>
               {formatDate(task.due_date)}
+              {task.due_time && <span style={{ opacity: 0.75 }}> · {task.due_time.slice(0,5)}</span>}
               {!completed && daysLabel && (
                 <span className="pc-days-badge"
                   style={{ color: daysColor, background: `${daysColor}15`, borderColor: `${daysColor}28` }}>
@@ -1294,7 +1303,7 @@ html, body {
   width: 20px;
   text-align: center;
   flex-shrink: 0;
-  font-family: var(--font-mono);
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
 }
 .pc-folder-name { flex: 1; font-size: 13px; transition: color 0.15s; }
 .pc-folder-count { font-size: 12px; font-weight: 600; font-family: var(--font-mono); }
@@ -1427,9 +1436,17 @@ html, body {
 .pc-form-close:hover { opacity: 1; }
 .pc-input-title { width: 100%; font-size: 16px; margin-bottom: 14px; }
 .pc-form-error { padding: 10px 14px; border-radius: 10px; border: 1px solid; font-size: 13px; margin-bottom: 14px; }
-.pc-form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 18px; }
+.pc-form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 18px; }
 .pc-form-field label { display: block; font-size: 11px; margin-bottom: 6px; font-family: var(--font-mono); letter-spacing: 0.06em; }
 .pc-form-footer { display: flex; gap: 10px; justify-content: flex-end; }
+
+/* Fix select option text on all browsers */
+.pc-select option {
+  background: #0d0d1a;
+  color: #ffffff;
+  font-family: var(--font-sans);
+  padding: 8px;
+}
 
 /* ── Input base ── */
 .pc-input {
@@ -1719,7 +1736,7 @@ html, body {
   .pc-task-meta        { flex-wrap: wrap; gap: 4px; }
   .pc-form-wrapper     { padding: 12px 14px 0; }
   .pc-form             { padding: 16px 16px 18px; }
-  .pc-form-row         { grid-template-columns: 1fr; gap: 8px; }
+  .pc-form-row         { grid-template-columns: 1fr 1fr; gap: 8px; }
   .pc-form-footer      { flex-direction: column; gap: 8px; }
   .pc-btn-primary,
   .pc-btn-ghost        { width: 100%; text-align: center; justify-content: center; }
