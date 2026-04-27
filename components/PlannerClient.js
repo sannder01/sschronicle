@@ -9,6 +9,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { signOut, useSession } from 'next-auth/react'
 import CalendarView from './CalendarView'
 import CharacterPanel from './CharacterPanel'
+import HabitTracker from './HabitTracker'
 
 // ═══════════════════════════════════════════════════════════════════
 //  THEMES (logic preserved, extended with new tokens)
@@ -177,6 +178,11 @@ export default function PlannerClient() {
   const [debugInfo, setDebugInfo] = useState(null)
   const [showDebug, setShowDebug] = useState(false)
   const [showCalendar, setShowCalendar] = useState(false)
+  const [showHabits, setShowHabits] = useState(false)
+
+  // Edit task state
+  const [editingTask, setEditingTask] = useState(null)
+  const [editForm, setEditForm] = useState({ title: '', due_date: '', due_time: '', priority: 'medium', folder_id: '' })
 
   const canvasRef = useRef(null)
   const animRef = useRef(null)
@@ -424,6 +430,41 @@ export default function PlannerClient() {
     try { await fetch(`/api/folders/${id}`, { method: 'DELETE' }) } catch {}
   }
 
+  function openEditTask(task) {
+    setEditingTask(task)
+    setEditForm({
+      title:     task.title || '',
+      due_date:  task.due_date ? String(task.due_date).slice(0, 10) : '',
+      due_time:  task.due_time ? String(task.due_time).slice(0, 5) : '',
+      priority:  task.priority || 'medium',
+      folder_id: task.folder_id ? String(task.folder_id) : '',
+    })
+  }
+
+  async function saveEditTask(e) {
+    e.preventDefault()
+    if (!editForm.title.trim()) return
+    const updates = {
+      title:     editForm.title.trim(),
+      due_date:  editForm.due_date || null,
+      due_time:  editForm.due_time || null,
+      priority:  editForm.priority,
+      folder_id: editForm.folder_id ? Number(editForm.folder_id) : null,
+    }
+    try {
+      const res = await fetch(`/api/tasks/${editingTask.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      })
+      if (res.ok) {
+        const updated = await res.json()
+        setTasks(prev => prev.map(t => t.id === updated.id ? updated : t))
+        setEditingTask(null)
+      }
+    } catch {}
+  }
+
 
   function handleSignOut() { signOut({ callbackUrl: '/auth' }) }
 
@@ -638,6 +679,16 @@ export default function PlannerClient() {
                 <CalendarIcon />
               </button>
 
+              {/* Habits button */}
+              <button
+                className="pc-btn-ghost pc-btn-sm"
+                style={{ color: t.textSub, borderColor: t.cardBorder, padding: '8px 10px' }}
+                onClick={() => setShowHabits(true)}
+                title="Трекер привычек"
+              >
+                🔥
+              </button>
+
               <button className="pc-add-btn" style={{ background: `linear-gradient(135deg, ${t.primary}, ${t.primaryEnd})`, boxShadow: `0 4px 20px ${t.glow}` }}
                 onClick={() => setShowForm(true)}>
                 <span>+</span>
@@ -735,6 +786,7 @@ export default function PlannerClient() {
                   <TaskCard key={task.id} task={task} t={t} index={i}
                     onToggle={() => toggleTask(task)}
                     onDelete={() => setDeleteConfirm(task)}
+                    onEdit={() => openEditTask(task)}
                     folders={folders} completed={false}
                   />
                 ))}
@@ -751,6 +803,7 @@ export default function PlannerClient() {
                       <TaskCard key={task.id} task={task} t={t} index={i}
                         onToggle={() => toggleTask(task)}
                         onDelete={() => setDeleteConfirm(task)}
+                        onEdit={() => openEditTask(task)}
                         folders={folders} completed={true}
                       />
                     ))}
@@ -767,6 +820,87 @@ export default function PlannerClient() {
           theme={t}
           onClose={() => setShowCalendar(false)}
         />
+      )}
+
+      {/* ── HABIT TRACKER ── */}
+      {showHabits && (
+        <HabitTracker t={t} onClose={() => setShowHabits(false)} />
+      )}
+
+      {/* ── EDIT TASK MODAL ── */}
+      {editingTask && (
+        <div className="pc-overlay" onClick={e => e.target === e.currentTarget && setEditingTask(null)}>
+          <div className="pc-modal" style={{
+            background: t.card,
+            borderColor: t.cardBorderHover,
+            backdropFilter: 'blur(20px)',
+            boxShadow: `0 0 60px ${t.glow}`,
+          }}>
+            <div className="pc-modal-title" style={{ color: t.text }}>
+              ✏️ Редактировать задание
+            </div>
+            <form onSubmit={saveEditTask} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div>
+                <label style={{ display: 'block', color: t.textSub, fontSize: 11, marginBottom: 5, letterSpacing: 0.5, textTransform: 'uppercase' }}>Название</label>
+                <input
+                  className="pc-input pc-input-title"
+                  style={{ background: t.inputBg, borderColor: t.cardBorder, color: t.text, width: '100%', boxSizing: 'border-box' }}
+                  placeholder="Название задания..."
+                  value={editForm.title}
+                  onChange={e => setEditForm({ ...editForm, title: e.target.value })}
+                  autoFocus
+                />
+              </div>
+              <div className="pc-form-row">
+                <div className="pc-form-field">
+                  <label style={{ color: t.textSub }}>Дата</label>
+                  <input type="date" className="pc-input"
+                    style={{ background: t.inputBg, borderColor: t.cardBorder, color: t.text, colorScheme: 'dark' }}
+                    value={editForm.due_date}
+                    onChange={e => setEditForm({ ...editForm, due_date: e.target.value })}
+                  />
+                </div>
+                <div className="pc-form-field">
+                  <label style={{ color: t.textSub }}>Время</label>
+                  <input type="time" className="pc-input"
+                    style={{ background: t.inputBg, borderColor: t.cardBorder, color: t.text, colorScheme: 'dark' }}
+                    value={editForm.due_time}
+                    onChange={e => setEditForm({ ...editForm, due_time: e.target.value })}
+                  />
+                </div>
+                <div className="pc-form-field">
+                  <label style={{ color: t.textSub }}>Приоритет</label>
+                  <select className="pc-input pc-select"
+                    style={{ background: t.inputBg, borderColor: t.cardBorder, color: t.text }}
+                    value={editForm.priority}
+                    onChange={e => setEditForm({ ...editForm, priority: e.target.value })}>
+                    <option value="high">Высокий (+50 XP)</option>
+                    <option value="medium">Средний (+25 XP)</option>
+                    <option value="low">Низкий (+10 XP)</option>
+                  </select>
+                </div>
+                <div className="pc-form-field">
+                  <label style={{ color: t.textSub }}>Папка</label>
+                  <select className="pc-input pc-select"
+                    style={{ background: t.inputBg, borderColor: t.cardBorder, color: t.text }}
+                    value={editForm.folder_id}
+                    onChange={e => setEditForm({ ...editForm, folder_id: e.target.value })}>
+                    <option value="">Без папки</option>
+                    {folders.map(f => <option key={f.id} value={f.id}>{f.emoji} {f.name}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="pc-modal-actions">
+                <button type="button" className="pc-btn-ghost" style={{ color: t.textSub, borderColor: t.cardBorder }}
+                  onClick={() => setEditingTask(null)}>Отмена</button>
+                <button type="submit" className="pc-btn-primary"
+                  style={{ background: `linear-gradient(135deg, ${t.primary}, ${t.primaryEnd})`, boxShadow: `0 4px 16px ${t.glow}` }}>
+                  Сохранить
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       {/* ── BOTTOM DEBUG ── */}
@@ -832,11 +966,11 @@ function Sidebar({
             <div key={folder.id} className={`pc-folder-item folder-item ${isActive ? 'pc-folder-active' : ''}`}
               style={{
                 background: isActive ? t.surface : 'transparent',
-                borderColor: isActive ? `${t.primary}33` : 'transparent',
-                boxShadow: isActive ? `0 0 16px ${t.glow}` : 'none',
+                borderColor: isActive ? `${folder.color || t.primary}33` : 'transparent',
+                boxShadow: isActive ? `0 0 16px ${folder.color ? folder.color + '28' : t.glow}` : 'none',
               }}
               onClick={() => setActiveFolder(folder.id)}>
-              <span className="pc-folder-emoji" style={{ color: isActive ? t.primary : t.textSub }}>
+              <span className="pc-folder-emoji" style={{ color: folder.color || (isActive ? t.primary : t.textSub) }}>
                 {folder.emoji}
               </span>
               <span className="pc-folder-name" style={{ color: isActive ? t.text : t.textSub, fontWeight: isActive ? 600 : 400 }}>
@@ -856,30 +990,52 @@ function Sidebar({
         {/* Add folder form */}
         {showFolderForm ? (
           <form onSubmit={createFolder} className="pc-folder-form">
+            <div style={{ fontSize: 11, color: t.textSub, letterSpacing: 0.5, marginBottom: 8, textTransform: 'uppercase', fontWeight: 600 }}>
+              Новая папка
+            </div>
             <div className="pc-folder-form-row">
-              <input value={folderForm.emoji}
-                onChange={e => setFolderForm({ ...folderForm, emoji: e.target.value })}
-                className="pc-input pc-input-emoji"
-                style={{ background: t.inputBg, borderColor: t.cardBorder, color: t.text }}
-              />
-              <input value={folderForm.name} autoFocus
-                onChange={e => setFolderForm({ ...folderForm, name: e.target.value })}
-                placeholder="Название..."
-                className="pc-input"
-                style={{ background: t.inputBg, borderColor: t.cardBorder, color: t.text, flex: 1 }}
-              />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                <label style={{ fontSize: 10, color: t.textMuted, letterSpacing: 0.3 }}>Иконка</label>
+                <input value={folderForm.emoji}
+                  onChange={e => setFolderForm({ ...folderForm, emoji: e.target.value })}
+                  className="pc-input pc-input-emoji"
+                  placeholder="◆"
+                  title="Введите эмодзи или символ для папки"
+                  style={{ background: t.inputBg, borderColor: t.cardBorder, color: t.text }}
+                />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: 1 }}>
+                <label style={{ fontSize: 10, color: t.textMuted, letterSpacing: 0.3 }}>Название *</label>
+                <input value={folderForm.name} autoFocus
+                  onChange={e => setFolderForm({ ...folderForm, name: e.target.value })}
+                  placeholder="Например: Работа, Учёба..."
+                  required
+                  className="pc-input"
+                  style={{ background: t.inputBg, borderColor: t.cardBorder, color: t.text, flex: 1 }}
+                />
+              </div>
+            </div>
+            <div style={{ fontSize: 10, color: t.textMuted, letterSpacing: 0.3, marginBottom: 4 }}>
+              Цвет папки
             </div>
             <div className="pc-color-swatches">
               {['#8B5CF6','#F54B64','#5CB85C','#F0A30A','#5BC0DE','#FF6B9D'].map(c => (
-                <div key={c} className="pc-swatch" style={{ background: c, borderColor: folderForm.color === c ? '#fff' : 'transparent' }}
+                <div key={c} className="pc-swatch"
+                  style={{ background: c, borderColor: folderForm.color === c ? '#fff' : 'transparent' }}
+                  title={c}
                   onClick={() => setFolderForm({ ...folderForm, color: c })} />
               ))}
             </div>
+            {!folderForm.name.trim() && (
+              <div style={{ fontSize: 11, color: '#ff8899', marginBottom: 4 }}>
+                Введите название папки
+              </div>
+            )}
             <div className="pc-folder-form-actions">
               <button type="button" className="pc-btn-ghost pc-btn-sm" style={{ color: t.textSub, borderColor: t.cardBorder }}
                 onClick={() => setShowFolderForm(false)}>Отмена</button>
               <button type="submit" className="pc-btn-primary pc-btn-sm"
-                style={{ background: `linear-gradient(135deg, ${t.primary}, ${t.primaryEnd})` }}>Создать</button>
+                style={{ background: `linear-gradient(135deg, ${folderForm.color}, ${folderForm.color}bb)` }}>Создать</button>
             </div>
           </form>
         ) : (
@@ -924,7 +1080,7 @@ function SidebarBtn({ icon, label, onClick, t, danger }) {
 // ═══════════════════════════════════════════════════════════════════
 //  TASK CARD
 // ═══════════════════════════════════════════════════════════════════
-function TaskCard({ task, t, index, onToggle, onDelete, folders, completed }) {
+function TaskCard({ task, t, index, onToggle, onDelete, onEdit, folders, completed }) {
   const days = getDaysLeft(task.due_date)
   const daysLabel = getDaysLeftLabel(days)
   const daysColor = getDaysColor(days, t)
@@ -984,7 +1140,7 @@ function TaskCard({ task, t, index, onToggle, onDelete, folders, completed }) {
           )}
 
           {folder && (
-            <span className="pc-task-folder" style={{ color: t.textMuted }}>
+            <span className="pc-task-folder" style={{ color: folder.color || t.textMuted }}>
               {folder.emoji} {folder.name}
             </span>
           )}
@@ -994,6 +1150,14 @@ function TaskCard({ task, t, index, onToggle, onDelete, folders, completed }) {
           )}
         </div>
       </div>
+
+      {/* Edit */}
+      {!completed && (
+        <button className="pc-task-edit" style={{ color: t.textMuted }}
+          onClick={e => { e.stopPropagation(); onEdit() }}>
+          ✎
+        </button>
+      )}
 
       {/* Delete */}
       <button className="pc-task-delete" style={{ color: t.textMuted }}
@@ -1567,6 +1731,17 @@ html, body {
 .pc-task:hover .pc-task-delete { opacity: 0.5; }
 .pc-task-delete:hover { opacity: 1 !important; }
 
+.pc-task-edit {
+  background: none; border: none;
+  cursor: pointer; font-size: 15px;
+  padding: 4px; border-radius: 6px;
+  flex-shrink: 0; opacity: 0;
+  transition: opacity 0.2s;
+  margin-top: -2px;
+}
+.pc-task:hover .pc-task-edit { opacity: 0.4; }
+.pc-task-edit:hover { opacity: 0.9 !important; }
+
 /* ── Section divider ── */
 .pc-section-divider {
   display: flex; align-items: center; gap: 10px;
@@ -1805,6 +1980,7 @@ html, body {
   .pc-btn-danger   { min-height: 44px; }
   .pc-input        { min-height: 44px; }
   .pc-task-delete  { opacity: 0.4 !important; width: 32px; height: 32px; }
+  .pc-task-edit    { opacity: 0.35 !important; width: 32px; height: 32px; }
 }
 
 /* Prevent overflow */
@@ -1831,6 +2007,7 @@ html, body { background: #030407; overflow-x: hidden; }
 /* Mobile: task delete always visible (no hover on touch) */
 @media (pointer: coarse) {
   .pc-task-delete  { opacity: 0.45 !important; }
+  .pc-task-edit    { opacity: 0.4 !important; }
   /* bot link tap target */
   .pc-bot-link { min-height: 44px; display: flex; align-items: center; }
 }
