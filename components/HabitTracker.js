@@ -1,4 +1,4 @@
-'use client'
+use client'
 // ╔══════════════════════════════════════════════════════╗
 // ║  HABIT TRACKER — Chronicle Engine v1.0              ║
 // ║  Streak tracking · Daily check-off · Progress view  ║
