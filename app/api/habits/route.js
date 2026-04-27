@@ -3,49 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { query } from '@/lib/db'
 
-async function calculateStreak(habitId, client) {
-  const q = client || { query: (sql, params) => query(sql, params) }
-  const result = await q.query(
-    'SELECT logged_at FROM habit_logs WHERE habit_id = $1 ORDER BY logged_at DESC',
-    [habitId]
-  )
-  const rows = result.rows
-  if (!rows.length) return 0
-
-  const logs = new Set(rows.map(r => {
-    const d = r.logged_at
-    return d instanceof Date ? d.toISOString().slice(0, 10) : String(d).slice(0, 10)
-  }))
-
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const todayStr = today.toISOString().slice(0, 10)
-
-  const yesterday = new Date(today - 86400000)
-  const yesterdayStr = yesterday.toISOString().slice(0, 10)
-
-  if (!logs.has(todayStr) && !logs.has(yesterdayStr)) return 0
-
-  let checkDate = logs.has(todayStr) ? new Date(today) : new Date(yesterday)
-  let streak = 0
-
-  while (true) {
-    const dateStr = checkDate.toISOString().slice(0, 10)
-    if (logs.has(dateStr)) {
-      streak++
-      checkDate = new Date(checkDate - 86400000)
-    } else {
-      break
-    }
-  }
-  return streak
-}
-
-export async function GET() {
-  const session = await getServerSession(authOptions)
-  if (!session?.user?.id) return Response.json({ error: 'Unauthorized' }, { status: 401 })
-
-  // Ensure tables exist
+async function ensureTables() {
   await query(`
     CREATE TABLE IF NOT EXISTS habits (
       id          SERIAL PRIMARY KEY,
@@ -53,9 +11,15 @@ export async function GET() {
       name        TEXT NOT NULL,
       description TEXT,
       frequency   TEXT DEFAULT 'daily',
+      days        JSONB,
       color       TEXT DEFAULT '#8B5CF6',
       created_at  TIMESTAMPTZ DEFAULT NOW()
     )
+  `).catch(() => {})
+
+  // Add 'days' column if it doesn't exist yet (safe migration)
+  await query(`
+    ALTER TABLE habits ADD COLUMN IF NOT EXISTS days JSONB
   `).catch(() => {})
 
   await query(`
@@ -67,6 +31,42 @@ export async function GET() {
       UNIQUE(habit_id, logged_at)
     )
   `).catch(() => {})
+}
+
+async function calcStreak(habitId) {
+  const result = await query(
+    'SELECT logged_at FROM habit_logs WHERE habit_id = $1 ORDER BY logged_at DESC',
+    [habitId]
+  )
+  const rows = result.rows
+  if (!rows.length) return 0
+
+  const logs = new Set(rows.map(r => {
+    const d = r.logged_at
+    return d instanceof Date ? d.toISOString().slice(0,10) : String(d).slice(0,10)
+  }))
+
+  const today = new Date(); today.setHours(0,0,0,0)
+  const todayStr     = today.toISOString().slice(0,10)
+  const yesterdayStr = new Date(today-86400000).toISOString().slice(0,10)
+
+  if (!logs.has(todayStr) && !logs.has(yesterdayStr)) return 0
+
+  let check = logs.has(todayStr) ? new Date(today) : new Date(today-86400000)
+  let streak = 0
+  while (true) {
+    const s = check.toISOString().slice(0,10)
+    if (logs.has(s)) { streak++; check = new Date(check-86400000) }
+    else break
+  }
+  return streak
+}
+
+export async function GET() {
+  const session = await getServerSession(authOptions)
+  if (!session?.user?.id) return Response.json({ error:'Unauthorized' }, { status:401 })
+
+  await ensureTables()
 
   const result = await query(`
     SELECT
@@ -75,9 +75,7 @@ export async function GET() {
         SELECT 1 FROM habit_logs hl
         WHERE hl.habit_id = h.id AND hl.logged_at = CURRENT_DATE
       ) AS done_today,
-      COALESCE(
-        (SELECT COUNT(*) FROM habit_logs hl WHERE hl.habit_id = h.id), 0
-      ) AS total_logs
+      COALESCE((SELECT COUNT(*) FROM habit_logs hl WHERE hl.habit_id = h.id), 0) AS total_logs
     FROM habits h
     WHERE h.user_id = $1
     ORDER BY h.created_at ASC
@@ -85,7 +83,7 @@ export async function GET() {
 
   const habits = await Promise.all(result.rows.map(async h => ({
     ...h,
-    streak: await calculateStreak(h.id),
+    streak: await calcStreak(h.id),
   })))
 
   return Response.json(habits)
@@ -93,15 +91,29 @@ export async function GET() {
 
 export async function POST(req) {
   const session = await getServerSession(authOptions)
-  if (!session?.user?.id) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!session?.user?.id) return Response.json({ error:'Unauthorized' }, { status:401 })
 
-  const { name, description, frequency, color } = await req.json()
-  if (!name?.trim()) return Response.json({ error: 'Name required' }, { status: 400 })
+  await ensureTables()
+
+  const { name, description, frequency, days, color } = await req.json()
+  if (!name?.trim()) return Response.json({ error:'Name required' }, { status:400 })
+
+  // Normalize: if daily, days=null; if custom, store array
+  const daysValue = frequency === 'custom' && Array.isArray(days)
+    ? JSON.stringify(days)
+    : null
 
   const result = await query(`
-    INSERT INTO habits (user_id, name, description, frequency, color)
-    VALUES ($1, $2, $3, $4, $5) RETURNING *
-  `, [session.user.id, name.trim(), description || null, frequency || 'daily', color || '#8B5CF6'])
+    INSERT INTO habits (user_id, name, description, frequency, days, color)
+    VALUES ($1, $2, $3, $4, $5::jsonb, $6) RETURNING *
+  `, [
+    session.user.id,
+    name.trim(),
+    description || null,
+    frequency || 'daily',
+    daysValue,
+    color || '#8B5CF6',
+  ])
 
-  return Response.json({ ...result.rows[0], done_today: false, streak: 0, total_logs: 0 }, { status: 201 })
+  return Response.json({ ...result.rows[0], done_today:false, streak:0, total_logs:0 }, { status:201 })
 }
