@@ -123,6 +123,37 @@ async function migrate() {
     `)
     console.log('✅ Indexes created')
 
+    // ── Habits ───────────────────────────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS habits (
+        id          SERIAL PRIMARY KEY,
+        user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name        TEXT NOT NULL,
+        description TEXT,
+        frequency   TEXT DEFAULT 'daily',
+        color       TEXT DEFAULT '#8B5CF6',
+        created_at  TIMESTAMPTZ DEFAULT NOW()
+      )
+    `)
+    console.log('✅ habits table ready')
+
+    // ── Habit logs ───────────────────────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS habit_logs (
+        id         SERIAL PRIMARY KEY,
+        habit_id   INTEGER NOT NULL REFERENCES habits(id) ON DELETE CASCADE,
+        user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        logged_at  DATE NOT NULL DEFAULT CURRENT_DATE,
+        UNIQUE(habit_id, logged_at)
+      )
+    `)
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_habit_logs_habit ON habit_logs(habit_id);
+      CREATE INDEX IF NOT EXISTS idx_habit_logs_user  ON habit_logs(user_id);
+      CREATE INDEX IF NOT EXISTS idx_habits_user      ON habits(user_id);
+    `)
+    console.log('✅ habit_logs table ready')
+
     console.log('\n🎉 Migration complete! All tables are ready.')
   } catch (err) {
     console.error('❌ Migration error:', err.message)
