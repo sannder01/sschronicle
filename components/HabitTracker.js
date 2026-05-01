@@ -487,139 +487,164 @@ export default function HabitTracker({ t, onClose, onHabitComplete }) {
   const todayHabits = habits.filter(h => parseDays(h).includes(todayWd))
   const doneCount   = todayHabits.filter(h => h.done_today).length
 
+  // ── Inline mode: when onClose is not provided (e.g. embedded inside a page)
+  // render as a normal section instead of a fixed-position modal overlay.
+  // The modal overlay was crashing because onClose() would be called on backdrop
+  // click but onClose was undefined when rendered inline.
+  const isInline = !onClose
+
+  const bodyContent = (
+    <>
+      {/* Header */}
+      <div style={{
+        padding: isInline ? '0 16px 12px' : '20px 24px 16px',
+        borderBottom:`1px solid ${t.cardBorder}`,
+        display:'flex', alignItems:'center', justifyContent:'space-between',
+      }}>
+        <div>
+          <div style={{ color:t.text, fontWeight:800, fontSize:20, letterSpacing:-0.5 }}>
+            🔥 Habit Tracker
+          </div>
+          <div style={{ color:t.textSub, fontSize:12, marginTop:3 }}>
+            {today} · {doneCount}/{todayHabits.length} выполнено сегодня
+          </div>
+        </div>
+        <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+          {!showForm && (
+            <button onClick={() => setShowForm(true)} style={{
+              background: t.primary === '#ffffff' ? '#fff' : `linear-gradient(135deg, ${t.primary}, ${t.primaryEnd||t.primary})`,
+              border:'none', borderRadius:10, padding:'8px 16px',
+              color: t.primary === '#ffffff' ? '#000' : '#fff',
+              fontWeight:600, fontSize:13, cursor:'pointer',
+            }}>
+              + Привычка
+            </button>
+          )}
+          {/* Only render close button in modal mode */}
+          {onClose && (
+            <button onClick={onClose} style={{
+              background:'none', border:`1px solid ${t.cardBorder}`,
+              borderRadius:10, padding:'8px 12px',
+              color:t.textSub, cursor:'pointer', fontSize:16,
+            }}>✕</button>
+          )}
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      {todayHabits.length > 0 && (
+        <div style={{ padding:'12px 24px 0', display:'flex', alignItems:'center', gap:10 }}>
+          <div style={{ flex:1, height:6, background:t.surface||'rgba(255,255,255,0.06)', borderRadius:3, overflow:'hidden' }}>
+            <div style={{
+              height:'100%',
+              width:`${todayHabits.length ? (doneCount/todayHabits.length)*100 : 0}%`,
+              background: t.primary === '#ffffff'
+                ? 'linear-gradient(90deg, #fff, #ccc)'
+                : `linear-gradient(90deg, ${t.primary}, ${t.primaryEnd||t.primary})`,
+              borderRadius:3, transition:'width 0.4s ease',
+            }} />
+          </div>
+          <span style={{ color:t.textSub, fontSize:12, fontWeight:600, whiteSpace:'nowrap' }}>
+            {todayHabits.length ? Math.round((doneCount/todayHabits.length)*100) : 0}%
+          </span>
+        </div>
+      )}
+
+      {/* Content */}
+      <div style={{ padding:'16px 24px 24px', display:'flex', flexDirection:'column', gap:10 }}>
+
+        {/* Create form */}
+        {showForm && (
+          <CreateHabitForm
+            t={t}
+            onClose={() => setShowForm(false)}
+            onCreate={habit => setHabits(prev => [...prev, habit])}
+          />
+        )}
+
+        {/* Delete confirm */}
+        {deleteConfirm && (
+          <div style={{
+            background:'rgba(255,50,80,0.08)', border:'1px solid rgba(255,50,80,0.25)',
+            borderRadius:14, padding:'16px',
+            display:'flex', alignItems:'center', gap:12, flexWrap:'wrap',
+          }}>
+            <span style={{ color:t.text, flex:1, fontSize:14 }}>
+              Удалить привычку «{deleteConfirm.name}»?
+            </span>
+            <div style={{ display:'flex', gap:8 }}>
+              <button onClick={() => setDeleteConfirm(null)} style={{
+                background:'none', border:`1px solid ${t.cardBorder}`,
+                borderRadius:8, padding:'7px 14px', color:t.textSub, cursor:'pointer', fontSize:13,
+              }}>Отмена</button>
+              <button onClick={() => deleteHabit(deleteConfirm.id)} style={{
+                background:'rgba(255,50,80,0.15)', border:'1px solid rgba(255,50,80,0.3)',
+                borderRadius:8, padding:'7px 14px', color:'#ff6680', cursor:'pointer', fontSize:13, fontWeight:600,
+              }}>Удалить</button>
+            </div>
+          </div>
+        )}
+
+        {/* Habit list */}
+        {loading ? (
+          <div style={{ color:t.textSub, textAlign:'center', padding:'40px 0', fontSize:14 }}>
+            Загрузка...
+          </div>
+        ) : habits.length===0 && !showForm ? (
+          <div style={{ textAlign:'center', padding:'40px 0' }}>
+            <div style={{ fontSize:40, marginBottom:12 }}>🔥</div>
+            <div style={{ color:t.text, fontWeight:600, marginBottom:6 }}>Нет привычек</div>
+            <div style={{ color:t.textSub, fontSize:13, marginBottom:20 }}>
+              Добавьте первую привычку и начните формировать стрик!
+            </div>
+            <button onClick={() => setShowForm(true)} style={{
+              background: t.primary === '#ffffff' ? '#fff' : `linear-gradient(135deg, ${t.primary}, ${t.primaryEnd||t.primary})`,
+              border:'none', borderRadius:12, padding:'10px 24px',
+              color: t.primary === '#ffffff' ? '#000' : '#fff',
+              fontWeight:600, cursor:'pointer',
+            }}>
+              + Создать первую привычку
+            </button>
+          </div>
+        ) : (
+          habits.map(habit => (
+            <HabitCard key={habit.id} habit={habit} t={t}
+              onToggle={() => toggleHabit(habit)}
+              onDelete={() => setDeleteConfirm(habit)}
+              expanded={expanded === habit.id}
+              onExpand={() => setExpanded(expanded===habit.id ? null : habit.id)}
+            />
+          ))
+        )}
+      </div>
+    </>
+  )
+
+  // Inline mode: render as a flat section without the modal overlay
+  if (isInline) {
+    return (
+      <div style={{ width:'100%' }}>
+        {bodyContent}
+      </div>
+    )
+  }
+
+  // Modal mode: wrap in fixed overlay backdrop
   return (
     <div style={{
       position:'fixed', inset:0, zIndex:300,
       background:'rgba(0,0,0,0.7)', backdropFilter:'blur(8px)',
       display:'flex', alignItems:'flex-start', justifyContent:'center',
       padding:'20px 16px', overflowY:'auto',
-    }} onClick={e => e.target===e.currentTarget && onClose()}>
+    }} onClick={e => { if (e.target===e.currentTarget && onClose) onClose() }}>
       <div style={{
         width:'100%', maxWidth:580,
-        background:t.bg, border:`1px solid ${t.cardBorder}`,
+        background:t.bg||'#0a0a0a', border:`1px solid ${t.cardBorder}`,
         borderRadius:20, overflow:'hidden',
         boxShadow:`0 0 80px ${t.glow}`,
         marginTop:40,
       }} onClick={e => e.stopPropagation()}>
-
-        {/* Header */}
-        <div style={{
-          padding:'20px 24px 16px',
-          borderBottom:`1px solid ${t.cardBorder}`,
-          display:'flex', alignItems:'center', justifyContent:'space-between',
-        }}>
-          <div>
-            <div style={{ color:t.text, fontWeight:800, fontSize:20, letterSpacing:-0.5 }}>
-              🔥 Habit Tracker
-            </div>
-            <div style={{ color:t.textSub, fontSize:12, marginTop:3 }}>
-              {today} · {doneCount}/{todayHabits.length} выполнено сегодня
-            </div>
-          </div>
-          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-            {!showForm && (
-              <button onClick={() => setShowForm(true)} style={{
-                background:`linear-gradient(135deg, ${t.primary}, ${t.primaryEnd})`,
-                border:'none', borderRadius:10, padding:'8px 16px',
-                color:'#fff', fontWeight:600, fontSize:13, cursor:'pointer',
-                boxShadow:`0 4px 16px ${t.glow}`,
-              }}>
-                + Привычка
-              </button>
-            )}
-            <button onClick={onClose} style={{
-              background:'none', border:`1px solid ${t.cardBorder}`,
-              borderRadius:10, padding:'8px 12px',
-              color:t.textMuted, cursor:'pointer', fontSize:16,
-            }}>✕</button>
-          </div>
-        </div>
-
-        {/* Progress bar */}
-        {todayHabits.length > 0 && (
-          <div style={{ padding:'12px 24px 0', display:'flex', alignItems:'center', gap:10 }}>
-            <div style={{ flex:1, height:6, background:t.surface, borderRadius:3, overflow:'hidden' }}>
-              <div style={{
-                height:'100%',
-                width:`${todayHabits.length ? (doneCount/todayHabits.length)*100 : 0}%`,
-                background:`linear-gradient(90deg, ${t.primary}, ${t.primaryEnd})`,
-                borderRadius:3, transition:'width 0.4s ease',
-                boxShadow:`0 0 8px ${t.glow}`,
-              }} />
-            </div>
-            <span style={{ color:t.textSub, fontSize:12, fontWeight:600, whiteSpace:'nowrap' }}>
-              {todayHabits.length ? Math.round((doneCount/todayHabits.length)*100) : 0}%
-            </span>
-          </div>
-        )}
-
-        {/* Content */}
-        <div style={{ padding:'16px 24px 24px', display:'flex', flexDirection:'column', gap:10 }}>
-
-          {/* Create form */}
-          {showForm && (
-            <CreateHabitForm
-              t={t}
-              onClose={() => setShowForm(false)}
-              onCreate={habit => setHabits(prev => [...prev, habit])}
-            />
-          )}
-
-          {/* Delete confirm */}
-          {deleteConfirm && (
-            <div style={{
-              background:'rgba(255,50,80,0.08)', border:'1px solid rgba(255,50,80,0.25)',
-              borderRadius:14, padding:'16px',
-              display:'flex', alignItems:'center', gap:12, flexWrap:'wrap',
-            }}>
-              <span style={{ color:t.text, flex:1, fontSize:14 }}>
-                Удалить привычку «{deleteConfirm.name}»?
-              </span>
-              <div style={{ display:'flex', gap:8 }}>
-                <button onClick={() => setDeleteConfirm(null)} style={{
-                  background:'none', border:`1px solid ${t.cardBorder}`,
-                  borderRadius:8, padding:'7px 14px', color:t.textSub, cursor:'pointer', fontSize:13,
-                }}>Отмена</button>
-                <button onClick={() => deleteHabit(deleteConfirm.id)} style={{
-                  background:'rgba(255,50,80,0.15)', border:'1px solid rgba(255,50,80,0.3)',
-                  borderRadius:8, padding:'7px 14px', color:'#ff6680', cursor:'pointer', fontSize:13, fontWeight:600,
-                }}>Удалить</button>
-              </div>
-            </div>
-          )}
-
-          {/* Habit list */}
-          {loading ? (
-            <div style={{ color:t.textSub, textAlign:'center', padding:'40px 0', fontSize:14 }}>
-              Загрузка...
-            </div>
-          ) : habits.length===0 && !showForm ? (
-            <div style={{ textAlign:'center', padding:'40px 0' }}>
-              <div style={{ fontSize:40, marginBottom:12 }}>🔥</div>
-              <div style={{ color:t.text, fontWeight:600, marginBottom:6 }}>Нет привычек</div>
-              <div style={{ color:t.textSub, fontSize:13, marginBottom:20 }}>
-                Добавьте первую привычку и начните формировать стрик!
-              </div>
-              <button onClick={() => setShowForm(true)} style={{
-                background:`linear-gradient(135deg, ${t.primary}, ${t.primaryEnd})`,
-                border:'none', borderRadius:12, padding:'10px 24px',
-                color:'#fff', fontWeight:600, cursor:'pointer',
-                boxShadow:`0 4px 20px ${t.glow}`,
-              }}>
-                + Создать первую привычку
-              </button>
-            </div>
-          ) : (
-            habits.map(habit => (
-              <HabitCard key={habit.id} habit={habit} t={t}
-                onToggle={() => toggleHabit(habit)}
-                onDelete={() => setDeleteConfirm(habit)}
-                expanded={expanded === habit.id}
-                onExpand={() => setExpanded(expanded===habit.id ? null : habit.id)}
-              />
-            ))
-          )}
-        </div>
+        {bodyContent}
       </div>
     </div>
   )
