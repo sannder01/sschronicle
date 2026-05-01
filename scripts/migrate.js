@@ -154,6 +154,36 @@ async function migrate() {
     `)
     console.log('✅ habit_logs table ready')
 
+    // ── Fitness ────────────────────────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS fitness_meals (
+        id SERIAL PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        date DATE NOT NULL DEFAULT CURRENT_DATE, meal_type TEXT DEFAULT 'lunch',
+        name TEXT NOT NULL, calories INTEGER DEFAULT 0,
+        protein NUMERIC(6,1) DEFAULT 0, fat NUMERIC(6,1) DEFAULT 0, carbs NUMERIC(6,1) DEFAULT 0,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS fitness_weight (
+        id SERIAL PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        date DATE NOT NULL, weight NUMERIC(5,1) NOT NULL, UNIQUE(user_id, date)
+      )
+    `)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS fitness_water (
+        id SERIAL PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        date DATE NOT NULL, water_ml INTEGER DEFAULT 0, UNIQUE(user_id, date)
+      )
+    `)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS fitness_config (
+        user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        calorie_goal INTEGER DEFAULT 2000, target_weight NUMERIC(5,1)
+      )
+    `)
+    console.log('✅ fitness tables ready')
+
     console.log('\n🎉 Migration complete! All tables are ready.')
   } catch (err) {
     console.error('❌ Migration error:', err.message)
