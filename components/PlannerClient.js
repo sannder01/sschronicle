@@ -23,7 +23,7 @@ const THEME = {
   cardBorder: 'rgba(255,255,255,0.08)',
   cardBorderHover: 'rgba(255,255,255,0.22)',
   primary: '#ffffff', primaryEnd: '#cccccc', primaryRgb: '255,255,255',
-  text: '#ffffff', textMuted: '#333333', textSub: '#666666',
+  text: '#ffffff', textMuted: '#555555', textSub: '#666666',
   accent: '#ffffff', glow: 'rgba(255,255,255,0.08)',
   surface: 'rgba(255,255,255,0.06)', sidebar: 'rgba(8,8,8,0.95)',
   inputBg: 'rgba(255,255,255,0.05)', overlay: 'rgba(0,0,0,0.85)',
@@ -147,11 +147,17 @@ export default function PlannerClient() {
   const cursorDotRef = useRef(null)
   const cursorRingRef = useRef(null)
   const cursorRafRef = useRef(null)
+  const taskListRef = useRef(null) // for scroll-to-top on folder change
 
   // Swipe state
   const touchStartX = useRef(null)
   const touchStartY = useRef(null)
   const swipeContainerRef = useRef(null)
+
+  // ── Scroll task list to top when switching folders ───────────────
+  useEffect(() => {
+    if (taskListRef.current) taskListRef.current.scrollTop = 0
+  }, [activeFolder])
 
   // ── Init ────────────────────────────────────────────────────────
   useEffect(() => { loadData() }, [])
@@ -167,6 +173,11 @@ export default function PlannerClient() {
     let mx = 0, my = 0, rx = 0, ry = 0
     const onMove = e => { mx = e.clientX; my = e.clientY }
     window.addEventListener('mousemove', onMove)
+    // Use event delegation so dynamically added buttons are covered
+    const onOver = e => { if (e.target.closest('button, a, [role=button]')) ring.classList.add('pc-cursor-hover') }
+    const onOut  = e => { if (e.target.closest('button, a, [role=button]')) ring.classList.remove('pc-cursor-hover') }
+    document.addEventListener('mouseover', onOver)
+    document.addEventListener('mouseout', onOut)
     const loop = () => {
       dot.style.transform = `translate(${mx-4}px,${my-4}px)`
       rx += (mx-rx)*0.1; ry += (my-ry)*0.1
@@ -174,7 +185,13 @@ export default function PlannerClient() {
       cursorRafRef.current = requestAnimationFrame(loop)
     }
     loop()
-    return () => { cancelAnimationFrame(cursorRafRef.current); window.removeEventListener('mousemove', onMove); dot.remove(); ring.remove() }
+    return () => {
+      cancelAnimationFrame(cursorRafRef.current)
+      window.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseover', onOver)
+      document.removeEventListener('mouseout', onOut)
+      dot.remove(); ring.remove()
+    }
   }, [])
 
   // ── Particle canvas ──────────────────────────────────────────────
@@ -215,10 +232,11 @@ export default function PlannerClient() {
       const safeTasks = Array.isArray(tasksData) ? tasksData : []
       setTasks(safeTasks)
       setFolders(Array.isArray(foldersData) ? foldersData : [])
-      const calcXP = safeTasks.filter(t => t.completed).reduce((s, t) => s + getXP(t.priority), 0)
-      // Also add habit XP from localStorage if available
-      const habitXP = parseInt(localStorage.getItem('chronicle_habit_xp') || '0', 10)
-      setXp(calcXP + habitXP)
+      // Compute task XP from completed tasks
+      const taskXP = safeTasks.filter(t => t.completed).reduce((s, t) => s + getXP(t.priority), 0)
+      // Habit XP is accumulated in-session via onHabitComplete; only seed from localStorage on first load
+      const storedHabitXP = parseInt(localStorage.getItem('chronicle_habit_xp') || '0', 10)
+      setXp(taskXP + storedHabitXP)
       localStorage.setItem('chronicle_tasks_cache', JSON.stringify(safeTasks))
       localStorage.setItem('chronicle_folders_cache', JSON.stringify(foldersData))
     } catch {
@@ -306,8 +324,11 @@ export default function PlannerClient() {
       })
       if (res.ok) {
         const updated = await res.json()
-        setFolders(prev => prev.map(f => f.id === updated.id ? updated : f))
-        localStorage.setItem('chronicle_folders_cache', JSON.stringify(folders.map(f => f.id === updated.id ? updated : f)))
+        setFolders(prev => {
+          const next = prev.map(f => f.id === updated.id ? updated : f)
+          localStorage.setItem('chronicle_folders_cache', JSON.stringify(next))
+          return next
+        })
       }
     } catch {}
     setEditingFolder(null)
@@ -506,7 +527,7 @@ export default function PlannerClient() {
                       <span className="pc-header-progress-text" style={{ color: t.textSub }}>{Math.round((completedCount/totalCount)*100)}%</span>
                     </div>
                   )}
-                  <button className="pc-add-btn" style={{ background: t.text, color: '#000' }} onClick={() => setShowForm(true)}>
+                  <button className="pc-add-btn" aria-label="Создать задание" style={{ background: t.text, color: '#000' }} onClick={() => setShowForm(true)}>
                     <span>+</span><span className="pc-add-btn-label">Задание</span>
                   </button>
                 </div>
@@ -579,7 +600,7 @@ export default function PlannerClient() {
               )}
 
               {/* Task list */}
-              <div className="pc-task-list">
+              <div className="pc-task-list" ref={taskListRef}>
                 {loading ? <LoadingState t={t} />
                 : filteredTasks.length === 0 ? <EmptyState t={t} activeFolder={activeFolder} setShowForm={setShowForm} />
                 : <>
@@ -947,7 +968,7 @@ const GLOBAL_CSS = `
   --bg:#0a0a0a;
   --primary:#ffffff;
   --text:#ffffff;
-  --text-muted:#333333;
+  --text-muted:#555555;
   --text-sub:#666666;
   --danger:#ff4466;
   --success:#44ff88;
@@ -963,8 +984,8 @@ html,body{background:#0a0a0a;color:#fff;font-family:var(--font-sans);height:100%
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:3px;}
 
 .pc-cursor-dot{position:fixed;top:0;left:0;width:8px;height:8px;border-radius:50%;background:#fff;pointer-events:none;z-index:9999;will-change:transform;}
-.pc-cursor-ring{position:fixed;top:0;left:0;width:36px;height:36px;border-radius:50%;border:1px solid rgba(255,255,255,0.25);pointer-events:none;z-index:9998;will-change:transform;transition:border-color 0.3s;}
-.pc-cursor-ring.pc-cursor-hover{border-color:#fff;}
+.pc-cursor-ring{position:fixed;top:0;left:0;width:36px;height:36px;border-radius:50%;border:1px solid rgba(255,255,255,0.25);pointer-events:none;z-index:9998;will-change:transform;transition:border-color 0.3s,width 0.2s,height 0.2s,margin 0.2s;}
+.pc-cursor-ring.pc-cursor-hover{border-color:#fff;width:44px;height:44px;margin:-4px;}
 
 .pc-canvas{position:fixed;inset:0;pointer-events:none;z-index:0;}
 
