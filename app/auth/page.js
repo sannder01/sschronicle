@@ -100,6 +100,9 @@ function useParticleCanvas(canvasRef) {
 // ─── Custom cursor ───────────────────────────────────────────────
 function useCursor() {
   useEffect(() => {
+    // Skip on touch devices
+    if (window.matchMedia('(pointer: coarse)').matches) return;
+
     const dot = document.createElement('div');
     const ring = document.createElement('div');
     dot.className = '__chr-cursor-dot';
@@ -121,16 +124,25 @@ function useCursor() {
     };
     loop();
 
-    const onEnter = () => ring.classList.add('__chr-cursor-hover');
-    const onLeave = () => ring.classList.remove('__chr-cursor-hover');
-    document.querySelectorAll('button, a, [role=button]').forEach(el => {
-      el.addEventListener('mouseenter', onEnter);
-      el.addEventListener('mouseleave', onLeave);
-    });
+    // Use event delegation so dynamically added buttons/links are covered
+    const onOver = e => {
+      if (e.target.closest('button, a, [role=button]')) {
+        ring.classList.add('__chr-cursor-hover');
+      }
+    };
+    const onOut = e => {
+      if (e.target.closest('button, a, [role=button]')) {
+        ring.classList.remove('__chr-cursor-hover');
+      }
+    };
+    document.addEventListener('mouseover', onOver);
+    document.addEventListener('mouseout', onOut);
 
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseover', onOver);
+      document.removeEventListener('mouseout', onOut);
       dot.remove();
       ring.remove();
     };
@@ -483,7 +495,7 @@ html, body {
   border: 1px solid rgba(139,120,250,0.5);
   pointer-events: none;
   z-index: 9998;
-  transition: border-color 0.3s;
+  transition: border-color 0.3s, transform 0.2s, width 0.2s, height 0.2s, margin 0.2s;
 }
 .__chr-cursor-ring.__chr-cursor-hover {
   border-color: var(--chr-primary);
