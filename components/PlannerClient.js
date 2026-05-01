@@ -49,7 +49,6 @@ function getRank(xp) {
   return RANKS[0]
 }
 function getXP(priority) { return { high: 50, medium: 25, low: 10 }[priority] || 15 }
-function getHabitXP() { return 10 } // same as low task
 function xpToNextRank(xp) {
   const rank = getRank(xp)
   if (rank.max === Infinity) return { progress: 100, needed: 0 }
@@ -92,10 +91,6 @@ const DEFAULT_FOLDERS = [
   { id: 'today',  name: 'Сегодня',    emoji: '◎', color: '#F0A30A' },
   { id: 'urgent', name: 'Срочные',    emoji: '◉', color: '#FF4466' },
 ]
-function hexToRgb(hex) {
-  if (!hex || hex.length < 7) return '255,255,255'
-  return `${parseInt(hex.slice(1,3),16)},${parseInt(hex.slice(3,5),16)},${parseInt(hex.slice(5,7),16)}`
-}
 
 // ═══════════════════════════════════════════════════════════════════
 //  PAGE DEFINITIONS
@@ -131,7 +126,7 @@ export default function PlannerClient() {
 
   const [showFolderForm, setShowFolderForm] = useState(false)
   const [folderForm, setFolderForm] = useState({ name: '', emoji: '◆', color: '#888888' })
-  const [editingFolder, setEditingFolder] = useState(null) // {id, name, emoji, color}
+  const [editingFolder, setEditingFolder] = useState(null)
   const [editFolderForm, setEditFolderForm] = useState({ name: '', emoji: '', color: '' })
 
   const [deleteConfirm, setDeleteConfirm] = useState(null)
@@ -139,7 +134,7 @@ export default function PlannerClient() {
   const [editForm, setEditForm] = useState({ title: '', due_date: '', due_time: '', priority: 'medium', folder_id: '' })
 
   const [showGcalSync, setShowGcalSync] = useState(false)
-  const [gcalStatus, setGcalStatus] = useState(null) // null | 'connected' | 'syncing' | 'error'
+  const [gcalStatus, setGcalStatus] = useState(null)
 
   const canvasRef = useRef(null)
   const animRef = useRef(null)
@@ -147,20 +142,42 @@ export default function PlannerClient() {
   const cursorDotRef = useRef(null)
   const cursorRingRef = useRef(null)
   const cursorRafRef = useRef(null)
-  const taskListRef = useRef(null) // for scroll-to-top on folder change
+  const taskListRef = useRef(null)
 
   // Swipe state
   const touchStartX = useRef(null)
   const touchStartY = useRef(null)
-  const swipeContainerRef = useRef(null)
 
   // ── Scroll task list to top when switching folders ───────────────
   useEffect(() => {
     if (taskListRef.current) taskListRef.current.scrollTop = 0
   }, [activeFolder])
 
-  // ── Init ────────────────────────────────────────────────────────
-  useEffect(() => { loadData() }, [])
+  // ── Data Loading — wrapped in useCallback so useEffect dep is stable
+  const loadData = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [tasksRes, foldersRes] = await Promise.all([fetch('/api/tasks'), fetch('/api/folders')])
+      const tasksData = await tasksRes.json()
+      const foldersData = await foldersRes.json()
+      const safeTasks = Array.isArray(tasksData) ? tasksData : []
+      setTasks(safeTasks)
+      setFolders(Array.isArray(foldersData) ? foldersData : [])
+      const taskXP = safeTasks.filter(tk => tk.completed).reduce((s, tk) => s + getXP(tk.priority), 0)
+      const storedHabitXP = parseInt(localStorage.getItem('chronicle_habit_xp') || '0', 10)
+      setXp(taskXP + storedHabitXP)
+      localStorage.setItem('chronicle_tasks_cache', JSON.stringify(safeTasks))
+      localStorage.setItem('chronicle_folders_cache', JSON.stringify(foldersData))
+    } catch {
+      const ct = localStorage.getItem('chronicle_tasks_cache')
+      const cf = localStorage.getItem('chronicle_folders_cache')
+      if (ct) { const c = JSON.parse(ct); setTasks(c); setXp(c.filter(tk => tk.completed).reduce((s, tk) => s + getXP(tk.priority), 0)) }
+      if (cf) setFolders(JSON.parse(cf))
+    }
+    setLoading(false)
+  }, [])
+
+  useEffect(() => { loadData() }, [loadData])
 
   // ── Custom cursor (desktop only) ─────────────────────────────────
   useEffect(() => {
@@ -173,7 +190,6 @@ export default function PlannerClient() {
     let mx = 0, my = 0, rx = 0, ry = 0
     const onMove = e => { mx = e.clientX; my = e.clientY }
     window.addEventListener('mousemove', onMove)
-    // Use event delegation so dynamically added buttons are covered
     const onOver = e => { if (e.target.closest('button, a, [role=button]')) ring.classList.add('pc-cursor-hover') }
     const onOut  = e => { if (e.target.closest('button, a, [role=button]')) ring.classList.remove('pc-cursor-hover') }
     document.addEventListener('mouseover', onOver)
@@ -222,32 +238,6 @@ export default function PlannerClient() {
     return () => { window.removeEventListener('resize', resize); if (animRef.current) cancelAnimationFrame(animRef.current) }
   }, [])
 
-  // ── Data Loading ─────────────────────────────────────────────────
-  async function loadData() {
-    setLoading(true)
-    try {
-      const [tasksRes, foldersRes] = await Promise.all([fetch('/api/tasks'), fetch('/api/folders')])
-      const tasksData = await tasksRes.json()
-      const foldersData = await foldersRes.json()
-      const safeTasks = Array.isArray(tasksData) ? tasksData : []
-      setTasks(safeTasks)
-      setFolders(Array.isArray(foldersData) ? foldersData : [])
-      // Compute task XP from completed tasks
-      const taskXP = safeTasks.filter(t => t.completed).reduce((s, t) => s + getXP(t.priority), 0)
-      // Habit XP is accumulated in-session via onHabitComplete; only seed from localStorage on first load
-      const storedHabitXP = parseInt(localStorage.getItem('chronicle_habit_xp') || '0', 10)
-      setXp(taskXP + storedHabitXP)
-      localStorage.setItem('chronicle_tasks_cache', JSON.stringify(safeTasks))
-      localStorage.setItem('chronicle_folders_cache', JSON.stringify(foldersData))
-    } catch {
-      const ct = localStorage.getItem('chronicle_tasks_cache')
-      const cf = localStorage.getItem('chronicle_folders_cache')
-      if (ct) { const c = JSON.parse(ct); setTasks(c); setXp(c.filter(t=>t.completed).reduce((s,t)=>s+getXP(t.priority),0)) }
-      if (cf) setFolders(JSON.parse(cf))
-    }
-    setLoading(false)
-  }
-
   // ── Task CRUD ─────────────────────────────────────────────────────
   async function createTask(e) {
     e.preventDefault()
@@ -258,7 +248,7 @@ export default function PlannerClient() {
     try {
       const res = await fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: formData.title.trim(), due_date: formData.due_date||null, due_time: formData.due_time||null, priority: formData.priority, folder_id: fId }) })
-      if (!res.ok) { const e = await res.json().catch(()=>({})); setFormError(e.error||`Ошибка ${res.status}`); return }
+      if (!res.ok) { const err = await res.json().catch(()=>({})); setFormError(err.error||`Ошибка ${res.status}`); return }
       const created = await res.json()
       const updated = [created, ...tasks]
       setTasks(updated); localStorage.setItem('chronicle_tasks_cache', JSON.stringify(updated))
@@ -345,7 +335,7 @@ export default function PlannerClient() {
     const updates = { title: editForm.title.trim(), due_date: editForm.due_date||null, due_time: editForm.due_time||null, priority: editForm.priority, folder_id: editForm.folder_id ? Number(editForm.folder_id) : null }
     try {
       const res = await fetch(`/api/tasks/${editingTask.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updates) })
-      if (res.ok) { const updated = await res.json(); setTasks(prev => prev.map(t => t.id === updated.id ? updated : t)); setEditingTask(null) }
+      if (res.ok) { const updated = await res.json(); setTasks(prev => prev.map(tk => tk.id === updated.id ? updated : tk)); setEditingTask(null) }
     } catch {}
   }
 
@@ -355,9 +345,9 @@ export default function PlannerClient() {
     const oldRank = getRank(xp); const newRank = getRank(newXp)
     setXp(newXp)
     localStorage.setItem('chronicle_xp', String(newXp))
-    // Track habit XP separately
-    const prev = parseInt(localStorage.getItem('chronicle_habit_xp')||'0', 10)
-    localStorage.setItem('chronicle_habit_xp', String(prev + earnedXp))
+    // FIX: renamed variable to avoid shadowing the outer `prev` callback arg
+    const prevHabitXP = parseInt(localStorage.getItem('chronicle_habit_xp')||'0', 10)
+    localStorage.setItem('chronicle_habit_xp', String(prevHabitXP + earnedXp))
     const id = Date.now()
     setFloatingXP(prev => [...prev, { id, xp: earnedXp }])
     setTimeout(() => setFloatingXP(prev => prev.filter(x => x.id !== id)), 2000)
@@ -400,9 +390,9 @@ export default function PlannerClient() {
 
   // Analytics data
   const completedByPriority = {
-    high: tasks.filter(t => t.completed && t.priority === 'high').length,
-    medium: tasks.filter(t => t.completed && t.priority === 'medium').length,
-    low: tasks.filter(t => t.completed && t.priority === 'low').length,
+    high: tasks.filter(tk => tk.completed && tk.priority === 'high').length,
+    medium: tasks.filter(tk => tk.completed && tk.priority === 'medium').length,
+    low: tasks.filter(tk => tk.completed && tk.priority === 'low').length,
   }
 
   return (
@@ -431,15 +421,16 @@ export default function PlannerClient() {
       ))}
 
       {/* ── DELETE MODAL ── */}
+      {/* FIX: zIndex 900 > FitnessTracker modals at 800; type="button" on all non-submit buttons */}
       {deleteConfirm && (
-        <div className="pc-overlay" onClick={() => setDeleteConfirm(null)}>
-          <div className="pc-modal" onClick={e => e.stopPropagation()} style={{ background: '#111', borderColor: `${t.danger}33`,  }}>
+        <div className="pc-overlay" style={{ zIndex: 900 }} onClick={() => setDeleteConfirm(null)}>
+          <div className="pc-modal" onClick={e => e.stopPropagation()} style={{ background: '#111', borderColor: `${t.danger}33` }}>
             <div className="pc-modal-icon"><DeleteIcon color={t.danger} /></div>
             <div className="pc-modal-title" style={{ color: t.text }}>Удалить задание?</div>
             <div className="pc-modal-sub" style={{ color: t.textSub }}>«{deleteConfirm.title}» будет удалено навсегда.</div>
             <div className="pc-modal-actions">
-              <button className="pc-btn-ghost" style={{ color: t.textSub, borderColor: t.cardBorder }} onClick={() => setDeleteConfirm(null)}>Отмена</button>
-              <button className="pc-btn-danger" style={{ background: t.danger }} onClick={() => deleteTask(deleteConfirm.id)}>Удалить</button>
+              <button type="button" className="pc-btn-ghost" style={{ color: t.textSub, borderColor: t.cardBorder }} onClick={() => setDeleteConfirm(null)}>Отмена</button>
+              <button type="button" className="pc-btn-danger" style={{ background: t.danger }} onClick={() => deleteTask(deleteConfirm.id)}>Удалить</button>
             </div>
           </div>
         </div>
@@ -447,8 +438,8 @@ export default function PlannerClient() {
 
       {/* ── EDIT FOLDER MODAL ── */}
       {editingFolder && (
-        <div className="pc-overlay" onClick={() => setEditingFolder(null)}>
-          <div className="pc-modal" onClick={e => e.stopPropagation()} style={{ background: '#111', borderColor: t.cardBorder,  }}>
+        <div className="pc-overlay" style={{ zIndex: 900 }} onClick={() => setEditingFolder(null)}>
+          <div className="pc-modal" onClick={e => e.stopPropagation()} style={{ background: '#111', borderColor: t.cardBorder }}>
             <div className="pc-modal-title" style={{ color: t.text }}>✏️ Переименовать папку</div>
             <form onSubmit={saveFolder} style={{ display:'flex', flexDirection:'column', gap:10 }}>
               <div style={{ display:'flex', gap:8 }}>
@@ -474,8 +465,8 @@ export default function PlannerClient() {
 
       {/* ── EDIT TASK MODAL ── */}
       {editingTask && (
-        <div className="pc-overlay" onClick={e => e.target === e.currentTarget && setEditingTask(null)}>
-          <div className="pc-modal" style={{ background: '#111', borderColor: t.cardBorder,  }}>
+        <div className="pc-overlay" style={{ zIndex: 900 }} onClick={e => e.target === e.currentTarget && setEditingTask(null)}>
+          <div className="pc-modal" style={{ background: '#111', borderColor: t.cardBorder }}>
             <div className="pc-modal-title" style={{ color: t.text }}>✏️ Редактировать задание</div>
             <form onSubmit={saveEditTask} style={{ display:'flex', flexDirection:'column', gap:10 }}>
               <input className="pc-input pc-input-title" style={{ background: t.inputBg, borderColor: t.cardBorder, color: t.text }} placeholder="Название задания..." value={editForm.title} onChange={e => setEditForm({...editForm, title: e.target.value})} autoFocus />
@@ -527,7 +518,8 @@ export default function PlannerClient() {
                       <span className="pc-header-progress-text" style={{ color: t.textSub }}>{Math.round((completedCount/totalCount)*100)}%</span>
                     </div>
                   )}
-                  <button className="pc-add-btn" aria-label="Создать задание" style={{ background: t.text, color: '#000' }} onClick={() => setShowForm(true)}>
+                  {/* FIX: type="button" to prevent accidental form submit */}
+                  <button type="button" className="pc-add-btn" aria-label="Создать задание" style={{ background: t.text, color: '#000' }} onClick={() => setShowForm(true)}>
                     <span>+</span><span className="pc-add-btn-label">Задание</span>
                   </button>
                 </div>
@@ -540,13 +532,14 @@ export default function PlannerClient() {
                   const isActive = String(activeFolder) === String(folder.id)
                   return (
                     <div key={folder.id} className="pc-folder-tab-wrap">
-                      <button className="pc-folder-tab" onClick={() => setActiveFolder(folder.id)}
+                      {/* FIX: type="button" */}
+                      <button type="button" className="pc-folder-tab" onClick={() => setActiveFolder(folder.id)}
                         style={{ background: isActive ? t.surface : 'transparent', borderColor: isActive ? (folder.color||'rgba(255,255,255,0.4)') : t.cardBorder, color: isActive ? t.text : t.textSub, fontWeight: isActive ? 600 : 400 }}>
                         <span style={{ color: folder.color||t.textSub }}>{folder.emoji}</span>
                         <span>{folder.name}</span>
                       </button>
                       {!isBuiltin && isActive && (
-                        <button className="pc-folder-tab-edit" style={{ color: t.textSub }} onClick={() => { setEditingFolder(folder); setEditFolderForm({ name: folder.name, emoji: folder.emoji, color: folder.color }) }}>
+                        <button type="button" className="pc-folder-tab-edit" style={{ color: t.textSub }} onClick={() => { setEditingFolder(folder); setEditFolderForm({ name: folder.name, emoji: folder.emoji, color: folder.color }) }}>
                           ✎
                         </button>
                       )}
@@ -562,7 +555,7 @@ export default function PlannerClient() {
                     <button type="button" className="pc-btn-ghost" style={{ color: t.textSub, borderColor: t.cardBorder, padding: '0 10px', height: 36, fontSize: 13 }} onClick={() => setShowFolderForm(false)}>✕</button>
                   </form>
                 ) : (
-                  <button className="pc-folder-tab" onClick={() => setShowFolderForm(true)}
+                  <button type="button" className="pc-folder-tab" onClick={() => setShowFolderForm(true)}
                     style={{ background: 'transparent', borderColor: t.cardBorder, borderStyle: 'dashed', color: t.textMuted }}>
                     + Папка
                   </button>
@@ -572,7 +565,7 @@ export default function PlannerClient() {
               {/* Create form */}
               {showForm && (
                 <div className="pc-form-wrapper">
-                  <form onSubmit={createTask} className="pc-form" style={{ background: 'rgba(20,20,20,0.95)', borderColor: t.cardBorderHover,  }}>
+                  <form onSubmit={createTask} className="pc-form" style={{ background: 'rgba(20,20,20,0.95)', borderColor: t.cardBorderHover }}>
                     <div className="pc-form-header">
                       <span className="pc-form-label" style={{ color: t.textSub }}>Новое задание</span>
                       <button type="button" className="pc-form-close" style={{ color: t.textMuted }} onClick={() => { setShowForm(false); setFormError('') }}>✕</button>
@@ -699,8 +692,8 @@ export default function PlannerClient() {
                   <div style={{ background: t.card, border:`1px solid ${t.cardBorder}`, borderRadius:16, padding:'16px' }}>
                     <div style={{ fontSize:14, fontWeight:600, color: t.text, marginBottom:14 }}>Выполнено по приоритету</div>
                     {Object.entries(PRIORITY_CONFIG).map(([key, cfg]) => {
-                      const total = tasks.filter(t => t.priority === key).length
-                      const done = tasks.filter(t => t.priority === key && t.completed).length
+                      const total = tasks.filter(tk => tk.priority === key).length
+                      const done = tasks.filter(tk => tk.priority === key && tk.completed).length
                       const pct = total > 0 ? Math.round((done / total) * 100) : 0
                       return (
                         <div key={key} style={{ marginBottom:12 }}>
@@ -716,7 +709,6 @@ export default function PlannerClient() {
                     })}
                   </div>
 
-                  {/* XP this week estimate */}
                   <div style={{ background: t.card, border:`1px solid ${t.cardBorder}`, borderRadius:16, padding:'16px', marginTop:10 }}>
                     <div style={{ fontSize:14, fontWeight:600, color: t.text, marginBottom:10 }}>Общая статистика</div>
                     {[
@@ -744,7 +736,7 @@ export default function PlannerClient() {
                     <div style={{ fontSize:12, color: t.textSub, lineHeight:1.5, marginBottom:12 }}>
                       Синхронизируй задачи с Google Календарём. Задачи с дедлайном будут отображаться там и обратно.
                     </div>
-                    <button onClick={() => setShowGcalSync(true)}
+                    <button type="button" onClick={() => setShowGcalSync(true)}
                       style={{ background: gcalStatus === 'connected' ? t.surface : '#fff', color: gcalStatus === 'connected' ? t.text : '#000', border:'none', borderRadius:10, padding:'10px 16px', fontWeight:600, fontSize:13, cursor:'pointer', width:'100%' }}>
                       {gcalStatus === 'connected' ? '🔄 Синхронизировать сейчас' : '🔗 Подключить Google Календарь'}
                     </button>
@@ -818,7 +810,7 @@ export default function PlannerClient() {
                 </div>
 
                 {/* Sign out */}
-                <button onClick={handleSignOut}
+                <button type="button" onClick={handleSignOut}
                   style={{ width:'100%', background:'transparent', border:`1px solid ${t.danger}44`, borderRadius:14, padding:'14px', color: t.danger, fontWeight:600, fontSize:14, cursor:'pointer', transition:'all 0.2s' }}>
                   Выйти из аккаунта
                 </button>
@@ -837,7 +829,7 @@ export default function PlannerClient() {
         {/* ── BOTTOM NAV ── */}
         <nav className="pc-bottom-nav" style={{ background: t.navBg, borderTopColor: t.cardBorder }}>
           {PAGES.map(page => (
-            <button key={page.id} className="pc-nav-btn" onClick={() => setActivePage(page.id)}
+            <button type="button" key={page.id} className="pc-nav-btn" onClick={() => setActivePage(page.id)}
               style={{ color: activePage === page.id ? t.text : t.textSub }}>
               <span className="pc-nav-icon" style={{ opacity: activePage === page.id ? 1 : 0.5 }}>{page.icon}</span>
               <span className="pc-nav-label" style={{ fontWeight: activePage === page.id ? 600 : 400 }}>{page.label}</span>
@@ -849,8 +841,8 @@ export default function PlannerClient() {
 
       {/* ── GCAL MODAL ── */}
       {showGcalSync && (
-        <div className="pc-overlay" onClick={() => setShowGcalSync(false)}>
-          <div className="pc-modal" onClick={e => e.stopPropagation()} style={{ background:'#111', borderColor: t.cardBorder,  }}>
+        <div className="pc-overlay" style={{ zIndex: 900 }} onClick={() => setShowGcalSync(false)}>
+          <div className="pc-modal" onClick={e => e.stopPropagation()} style={{ background:'#111', borderColor: t.cardBorder }}>
             <div className="pc-modal-title" style={{ color: t.text }}>📅 Google Календарь</div>
             <div className="pc-modal-sub" style={{ color: t.textSub }}>
               Для подключения нужно добавить переменные окружения:<br />
@@ -864,7 +856,7 @@ export default function PlannerClient() {
               После добавления переменных в .env.local и деплоя — синхронизация включится автоматически. Задачи с датой будут попадать в Google Календарь.
             </div>
             <div className="pc-modal-actions">
-              <button className="pc-btn-ghost" style={{ color: t.textSub, borderColor: t.cardBorder }} onClick={() => setShowGcalSync(false)}>Закрыть</button>
+              <button type="button" className="pc-btn-ghost" style={{ color: t.textSub, borderColor: t.cardBorder }} onClick={() => setShowGcalSync(false)}>Закрыть</button>
             </div>
           </div>
         </div>
@@ -879,7 +871,7 @@ export default function PlannerClient() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  TASK CARD
+//  TASK CARD  — Bug 1 fixes: mobile overflow / text wrapping
 // ═══════════════════════════════════════════════════════════════════
 function TaskCard({ task, t, index, onToggle, onDelete, onEdit, folders, completed }) {
   const days = getDaysLeft(task.due_date)
@@ -891,14 +883,18 @@ function TaskCard({ task, t, index, onToggle, onDelete, onEdit, folders, complet
     <div className="pc-task task-card"
       style={{ background: t.card, borderColor: isUrgent ? `${t.danger}33` : t.cardBorder, opacity: completed ? 0.5 : 1, boxShadow: isUrgent ? `0 0 24px ${t.danger}10` : 'none', animationDelay: `${index*0.04}s` }}
       onClick={onToggle}>
+      {/* FIX Bug1: explicitly flex-shrink:0 on checkbox so it never squishes */}
       <div className="pc-checkbox"
-        style={{ borderColor: completed ? t.success : priority.color, background: completed ? t.success : 'transparent', boxShadow: completed ? `0 0 10px ${t.success}44` : 'none' }}>
+        style={{ borderColor: completed ? t.success : priority.color, background: completed ? t.success : 'transparent', boxShadow: completed ? `0 0 10px ${t.success}44` : 'none', flexShrink: 0 }}>
         {completed && <CheckIcon />}
       </div>
-      <div className="pc-task-content">
-        <div className="pc-task-title" style={{ color: completed ? t.textSub : t.text, textDecoration: completed ? 'line-through' : 'none', textDecorationColor: 'rgba(255,255,255,0.25)' }}>
+      {/* FIX Bug1: min-width:0 to allow flex child to shrink and text to wrap */}
+      <div className="pc-task-content" style={{ minWidth: 0 }}>
+        {/* FIX Bug1: word-break + overflow-wrap for long titles without spaces */}
+        <div className="pc-task-title" style={{ color: completed ? t.textSub : t.text, textDecoration: completed ? 'line-through' : 'none', textDecorationColor: 'rgba(255,255,255,0.25)', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
           {task.title}
         </div>
+        {/* FIX Bug1: meta row wraps; each badge has flex-shrink:0 */}
         <div className="pc-task-meta">
           <span className="pc-priority-badge" style={{ color: priority.color, background: `${priority.color}15`, borderColor: `${priority.color}28` }}>{priority.label}</span>
           {task.due_date && (
@@ -912,8 +908,9 @@ function TaskCard({ task, t, index, onToggle, onDelete, onEdit, folders, complet
           {!completed && <span className="pc-xp-reward" style={{ color: t.textMuted }}>+{getXP(task.priority)} XP</span>}
         </div>
       </div>
-      {!completed && <button className="pc-task-edit" style={{ color: t.textMuted }} onClick={e => { e.stopPropagation(); onEdit() }}>✎</button>}
-      <button className="pc-task-delete" style={{ color: t.textMuted }} onClick={e => { e.stopPropagation(); onDelete() }}>✕</button>
+      {/* FIX: type="button" + flex-shrink:0 on action buttons */}
+      {!completed && <button type="button" className="pc-task-edit" style={{ color: t.textMuted, flexShrink: 0 }} onClick={e => { e.stopPropagation(); onEdit() }}>✎</button>}
+      <button type="button" className="pc-task-delete" style={{ color: t.textMuted, flexShrink: 0 }} onClick={e => { e.stopPropagation(); onDelete() }}>✕</button>
     </div>
   )
 }
@@ -941,7 +938,7 @@ function EmptyState({ t, activeFolder, setShowForm }) {
       <div className="pc-empty-title" style={{ color: t.text }}>{m.title}</div>
       <div className="pc-empty-sub" style={{ color: t.textSub }}>{m.sub}</div>
       {activeFolder === 'all' && (
-        <button className="pc-btn-primary pc-empty-cta" style={{ background: '#fff', color: '#000' }} onClick={() => setShowForm(true)}>
+        <button type="button" className="pc-btn-primary pc-empty-cta" style={{ background: '#fff', color: '#000' }} onClick={() => setShowForm(true)}>
           + Первое задание
         </button>
       )}
@@ -989,7 +986,6 @@ html,body{background:#0a0a0a;color:#fff;font-family:var(--font-sans);height:100%
 
 .pc-canvas{position:fixed;inset:0;pointer-events:none;z-index:0;}
 
-
 @keyframes pc-fade-up{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 @keyframes pc-fade-in{from{opacity:0}to{opacity:1}}
 @keyframes pc-level-up{0%{opacity:0;transform:translate(-50%,-50%) scale(0.7)}12%{opacity:1;transform:translate(-50%,-50%) scale(1.02)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(0.95)}}
@@ -1019,17 +1015,18 @@ html,body{background:#0a0a0a;color:#fff;font-family:var(--font-sans);height:100%
   background:#0f0f0f;
   flex-shrink:0;
 }
-.pc-header-left{display:flex;align-items:center;gap:10px;}
-.pc-header-folder{display:flex;align-items:center;gap:8px;}
-.pc-header-folder-emoji{font-size:16px;font-family:var(--font-mono);}
-.pc-header-folder-name{font-family:var(--font-display);font-size:16px;font-weight:700;letter-spacing:-0.02em;}
-.pc-header-count{font-size:11px;font-weight:600;font-family:var(--font-mono);padding:2px 7px;border-radius:99px;border:1px solid;}
-.pc-header-right{display:flex;align-items:center;gap:10px;}
+/* FIX Bug1: header-left min-width:0 so it doesn't push right section off screen */
+.pc-header-left{display:flex;align-items:center;gap:10px;min-width:0;flex:1;}
+.pc-header-folder{display:flex;align-items:center;gap:8px;min-width:0;}
+.pc-header-folder-emoji{font-size:16px;font-family:var(--font-mono);flex-shrink:0;}
+.pc-header-folder-name{font-family:var(--font-display);font-size:16px;font-weight:700;letter-spacing:-0.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pc-header-count{font-size:11px;font-weight:600;font-family:var(--font-mono);padding:2px 7px;border-radius:99px;border:1px solid;flex-shrink:0;}
+.pc-header-right{display:flex;align-items:center;gap:10px;flex-shrink:0;}
 .pc-header-progress{display:flex;align-items:center;gap:8px;}
 .pc-header-progress-bar{width:60px;height:3px;border-radius:3px;overflow:hidden;}
 .pc-header-progress-fill{height:100%;border-radius:3px;transition:width .8s ease;}
 .pc-header-progress-text{font-family:var(--font-mono);font-size:11px;}
-.pc-add-btn{display:flex;align-items:center;gap:6px;border:none;border-radius:11px;padding:9px 14px;cursor:pointer;font-family:var(--font-sans);font-size:13px;font-weight:600;transition:all .2s;}
+.pc-add-btn{display:flex;align-items:center;gap:6px;border:none;border-radius:11px;padding:9px 14px;cursor:pointer;font-family:var(--font-sans);font-size:13px;font-weight:600;transition:all .2s;white-space:nowrap;}
 .pc-add-btn:hover{filter:brightness(0.9);transform:translateY(-1px);}
 
 /* ── Folder tabs ── */
@@ -1073,17 +1070,25 @@ html,body{background:#0a0a0a;color:#fff;font-family:var(--font-sans);height:100%
 
 /* ── Task list ── */
 .pc-task-list{flex:1;padding:12px 16px 40px;display:flex;flex-direction:column;gap:7px;overflow-y:auto;}
-.pc-task{display:flex;align-items:flex-start;gap:12px;padding:14px 14px;border-radius:14px;border:1px solid;cursor:pointer;transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease;}
+
+/* FIX Bug1: overflow:hidden prevents card from visually expanding beyond bounds */
+.pc-task{display:flex;align-items:flex-start;gap:10px;padding:12px 12px;border-radius:14px;border:1px solid;cursor:pointer;transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease;overflow:hidden;}
 .pc-task:hover{transform:translateY(-2px);}
 .pc-checkbox{width:20px;height:20px;border-radius:5px;border:2px solid;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;transition:all .25s ease;}
+
+/* FIX Bug1: min-width:0 is the key — without it, flex children ignore their parent's boundary */
 .pc-task-content{flex:1;min-width:0;}
-.pc-task-title{font-size:14px;font-weight:500;line-height:1.4;margin-bottom:6px;transition:color .2s;}
-.pc-task-meta{display:flex;flex-wrap:wrap;align-items:center;gap:5px;}
-.pc-priority-badge{font-size:10px;font-weight:600;padding:2px 7px;border-radius:5px;border:1px solid;font-family:var(--font-mono);}
-.pc-due-date{font-size:11px;display:flex;align-items:center;gap:4px;}
-.pc-days-badge{font-size:10px;font-weight:700;padding:1px 6px;border-radius:5px;border:1px solid;font-family:var(--font-mono);}
-.pc-task-folder{font-size:11px;}
-.pc-xp-reward{font-size:10px;margin-left:auto;font-family:var(--font-mono);opacity:.5;}
+
+/* FIX Bug1: word-break so titles without spaces still wrap */
+.pc-task-title{font-size:14px;font-weight:500;line-height:1.4;margin-bottom:6px;transition:color .2s;word-break:break-word;overflow-wrap:break-word;}
+
+/* FIX Bug1: flex-wrap so badges stack on narrow screens instead of overflowing */
+.pc-task-meta{display:flex;flex-wrap:wrap;align-items:center;gap:4px;min-width:0;}
+.pc-priority-badge{font-size:10px;font-weight:600;padding:2px 7px;border-radius:5px;border:1px solid;font-family:var(--font-mono);flex-shrink:0;}
+.pc-due-date{font-size:11px;display:flex;align-items:center;gap:4px;flex-shrink:0;flex-wrap:wrap;}
+.pc-days-badge{font-size:10px;font-weight:700;padding:1px 6px;border-radius:5px;border:1px solid;font-family:var(--font-mono);flex-shrink:0;}
+.pc-task-folder{font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;}
+.pc-xp-reward{font-size:10px;margin-left:auto;font-family:var(--font-mono);opacity:.5;flex-shrink:0;}
 .pc-task-delete{background:none;border:none;cursor:pointer;font-size:13px;padding:4px;border-radius:5px;flex-shrink:0;opacity:0;transition:opacity .2s;margin-top:-2px;}
 .pc-task:hover .pc-task-delete{opacity:.4;}
 .pc-task-delete:hover{opacity:1!important;}
@@ -1120,6 +1125,7 @@ html,body{background:#0a0a0a;color:#fff;font-family:var(--font-sans);height:100%
 .pc-nav-dot{width:3px;height:3px;border-radius:50%;margin-top:2px;}
 
 /* ── Modals ── */
+/* FIX z-index: PlannerClient modals use z-index:900 inline (above FitnessTracker's 800) */
 .pc-overlay{position:fixed;inset:0;z-index:800;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;padding:24px;animation:pc-fade-in .2s ease;}
 .pc-levelup-overlay{pointer-events:none;background:rgba(0,0,0,0.5);}
 .pc-modal{border-radius:20px;border:1px solid;padding:28px 24px;max-width:380px;width:100%;animation:pc-fade-up .3s ease;position:relative;}
@@ -1141,10 +1147,21 @@ html,body{background:#0a0a0a;color:#fff;font-family:var(--font-sans);height:100%
 @media(pointer:coarse){
   .pc-task{min-height:52px;}
   .pc-checkbox{width:24px;height:24px;}
+  /* FIX Bug1: on touch devices always show action buttons (no hover state) */
   .pc-task-delete,.pc-task-edit{opacity:.4!important;width:30px;height:30px;}
   .pc-btn-primary,.pc-btn-ghost,.pc-btn-danger{min-height:44px;}
   .pc-input{min-height:44px;}
   .pc-folder-tab{min-height:36px;padding:8px 12px;}
+}
+
+/* FIX Bug1: very narrow viewports (< 390px) — hide XP badge, reduce font sizes */
+@media(max-width:390px){
+  .pc-task{gap:8px;padding:10px 10px;}
+  .pc-task-title{font-size:13px;}
+  .pc-task-meta{gap:3px;}
+  .pc-priority-badge{font-size:9px;padding:2px 5px;}
+  .pc-due-date{font-size:10px;}
+  .pc-xp-reward{display:none;}
 }
 
 /* Responsive */
@@ -1161,5 +1178,4 @@ html,body{background:#0a0a0a;color:#fff;font-family:var(--font-sans);height:100%
 @supports(padding:max(0px)){
   .pc-bottom-nav{padding-bottom:max(0px,env(safe-area-inset-bottom));}
 }
-
 `;
