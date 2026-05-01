@@ -32,7 +32,7 @@ function daysInMonth(year, month) {
   return new Date(year, month + 1, 0).getDate()
 }
 
-export default function CalendarView({ tasks = [], theme = {}, onClose }) {
+export default function CalendarView({ tasks = [], theme = {}, onClose, inline = false }) {
   const t = theme
 
   const today = new Date()
@@ -100,7 +100,7 @@ export default function CalendarView({ tasks = [], theme = {}, onClose }) {
   }
 
   return (
-    <div style={S.overlay} onClick={onClose}>
+    <div style={inline ? { position: "relative", inset: "auto" } : S.overlay} onClick={inline ? undefined : onClose}>
       <div style={{ ...S.sheet, background: bg, borderColor: border }} onClick={e => e.stopPropagation()}>
 
         {/* ── Header ── */}
