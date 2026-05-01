@@ -17,7 +17,7 @@ import FitnessTracker from './FitnessTracker'
 // ═══════════════════════════════════════════════════════════════════
 const THEME = {
   bg: '#0a0a0a',
-  bgGrad: 'radial-gradient(ellipse 70% 60% at 30% 20%, #111118 0%, #0a0a0a 70%)',
+  bgGrad: '#0a0a0a',
   card: 'rgba(255,255,255,0.04)',
   cardHover: 'rgba(255,255,255,0.07)',
   cardBorder: 'rgba(255,255,255,0.08)',
@@ -28,7 +28,7 @@ const THEME = {
   surface: 'rgba(255,255,255,0.06)', sidebar: 'rgba(8,8,8,0.95)',
   inputBg: 'rgba(255,255,255,0.05)', overlay: 'rgba(0,0,0,0.85)',
   danger: '#ff4466', success: '#44ff88',
-  navBg: 'rgba(10,10,10,0.96)',
+  navBg: '#0a0a0a',
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -390,8 +390,7 @@ export default function PlannerClient() {
 
       {/* Particle canvas */}
       <canvas ref={canvasRef} className="pc-canvas" />
-      <div style={{ position:'fixed', inset:0, background: t.bgGrad, zIndex:0, pointerEvents:'none' }} />
-      <div className="pc-scanlines" />
+      <div style={{ position:'fixed', inset:0, background:'#0a0a0a', zIndex:0, pointerEvents:'none' }} />
 
       {/* ── LEVEL UP ── */}
       {levelUpData && (
@@ -413,7 +412,7 @@ export default function PlannerClient() {
       {/* ── DELETE MODAL ── */}
       {deleteConfirm && (
         <div className="pc-overlay" onClick={() => setDeleteConfirm(null)}>
-          <div className="pc-modal" onClick={e => e.stopPropagation()} style={{ background: '#111', borderColor: `${t.danger}33`, backdropFilter:'blur(32px)' }}>
+          <div className="pc-modal" onClick={e => e.stopPropagation()} style={{ background: '#111', borderColor: `${t.danger}33`,  }}>
             <div className="pc-modal-icon"><DeleteIcon color={t.danger} /></div>
             <div className="pc-modal-title" style={{ color: t.text }}>Удалить задание?</div>
             <div className="pc-modal-sub" style={{ color: t.textSub }}>«{deleteConfirm.title}» будет удалено навсегда.</div>
@@ -428,7 +427,7 @@ export default function PlannerClient() {
       {/* ── EDIT FOLDER MODAL ── */}
       {editingFolder && (
         <div className="pc-overlay" onClick={() => setEditingFolder(null)}>
-          <div className="pc-modal" onClick={e => e.stopPropagation()} style={{ background: '#111', borderColor: t.cardBorder, backdropFilter:'blur(32px)' }}>
+          <div className="pc-modal" onClick={e => e.stopPropagation()} style={{ background: '#111', borderColor: t.cardBorder,  }}>
             <div className="pc-modal-title" style={{ color: t.text }}>✏️ Переименовать папку</div>
             <form onSubmit={saveFolder} style={{ display:'flex', flexDirection:'column', gap:10 }}>
               <div style={{ display:'flex', gap:8 }}>
@@ -455,7 +454,7 @@ export default function PlannerClient() {
       {/* ── EDIT TASK MODAL ── */}
       {editingTask && (
         <div className="pc-overlay" onClick={e => e.target === e.currentTarget && setEditingTask(null)}>
-          <div className="pc-modal" style={{ background: '#111', borderColor: t.cardBorder, backdropFilter:'blur(20px)' }}>
+          <div className="pc-modal" style={{ background: '#111', borderColor: t.cardBorder,  }}>
             <div className="pc-modal-title" style={{ color: t.text }}>✏️ Редактировать задание</div>
             <form onSubmit={saveEditTask} style={{ display:'flex', flexDirection:'column', gap:10 }}>
               <input className="pc-input pc-input-title" style={{ background: t.inputBg, borderColor: t.cardBorder, color: t.text }} placeholder="Название задания..." value={editForm.title} onChange={e => setEditForm({...editForm, title: e.target.value})} autoFocus />
@@ -485,7 +484,7 @@ export default function PlannerClient() {
 
         {/* ── PAGES ── */}
         <div className="pc-pages-outer">
-          <div className="pc-pages-inner" style={{ transform: `translateX(-${activePage * 100}%)` }}>
+          <div className="pc-pages-inner" style={{ transform: `translateX(-${activePage * 20}%)` }}>
 
             {/* ══ PAGE 0: TASKS ══════════════════════════════════════════ */}
             <div className="pc-page">
@@ -552,7 +551,7 @@ export default function PlannerClient() {
               {/* Create form */}
               {showForm && (
                 <div className="pc-form-wrapper">
-                  <form onSubmit={createTask} className="pc-form" style={{ background: 'rgba(20,20,20,0.95)', borderColor: t.cardBorderHover, backdropFilter:'blur(20px)' }}>
+                  <form onSubmit={createTask} className="pc-form" style={{ background: 'rgba(20,20,20,0.95)', borderColor: t.cardBorderHover,  }}>
                     <div className="pc-form-header">
                       <span className="pc-form-label" style={{ color: t.textSub }}>Новое задание</span>
                       <button type="button" className="pc-form-close" style={{ color: t.textMuted }} onClick={() => { setShowForm(false); setFormError('') }}>✕</button>
@@ -830,7 +829,7 @@ export default function PlannerClient() {
       {/* ── GCAL MODAL ── */}
       {showGcalSync && (
         <div className="pc-overlay" onClick={() => setShowGcalSync(false)}>
-          <div className="pc-modal" onClick={e => e.stopPropagation()} style={{ background:'#111', borderColor: t.cardBorder, backdropFilter:'blur(32px)' }}>
+          <div className="pc-modal" onClick={e => e.stopPropagation()} style={{ background:'#111', borderColor: t.cardBorder,  }}>
             <div className="pc-modal-title" style={{ color: t.text }}>📅 Google Календарь</div>
             <div className="pc-modal-sub" style={{ color: t.textSub }}>
               Для подключения нужно добавить переменные окружения:<br />
@@ -957,7 +956,7 @@ const GLOBAL_CSS = `
   --surface:rgba(255,255,255,0.06);
 }
 
-html,body{background:#0a0a0a;color:#fff;font-family:var(--font-sans);min-height:100%;overflow-x:hidden;}
+html,body{background:#0a0a0a;color:#fff;font-family:var(--font-sans);height:100%;overflow-x:hidden;}
 
 ::-webkit-scrollbar{width:3px;}
 ::-webkit-scrollbar-track{background:transparent;}
@@ -968,7 +967,7 @@ html,body{background:#0a0a0a;color:#fff;font-family:var(--font-sans);min-height:
 .pc-cursor-ring.pc-cursor-hover{border-color:#fff;}
 
 .pc-canvas{position:fixed;inset:0;pointer-events:none;z-index:0;}
-.pc-scanlines{position:fixed;inset:0;pointer-events:none;z-index:1;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.015) 2px,rgba(0,0,0,0.015) 4px);}
+
 
 @keyframes pc-fade-up{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 @keyframes pc-fade-in{from{opacity:0}to{opacity:1}}
@@ -983,7 +982,7 @@ html,body{background:#0a0a0a;color:#fff;font-family:var(--font-sans);min-height:
 .folder-item{animation:pc-fade-up .25s ease both;}
 
 /* ── Root layout ── */
-.pc-root{position:relative;z-index:2;display:flex;flex-direction:column;height:100vh;overflow:hidden;}
+.pc-root{position:relative;z-index:2;display:flex;flex-direction:column;height:100dvh;min-height:100vh;overflow:hidden;background:#0a0a0a;}
 
 /* ── Page system ── */
 .pc-pages-outer{flex:1;overflow:hidden;}
@@ -995,9 +994,8 @@ html,body{background:#0a0a0a;color:#fff;font-family:var(--font-sans);min-height:
   position:relative;z-index:5;
   display:flex;align-items:center;justify-content:space-between;
   padding:16px 16px 12px;
-  backdrop-filter:blur(20px);
   border-bottom:1px solid rgba(255,255,255,0.06);
-  background:rgba(10,10,10,0.7);
+  background:#0f0f0f;
   flex-shrink:0;
 }
 .pc-header-left{display:flex;align-items:center;gap:10px;}
@@ -1054,7 +1052,7 @@ html,body{background:#0a0a0a;color:#fff;font-family:var(--font-sans);min-height:
 
 /* ── Task list ── */
 .pc-task-list{flex:1;padding:12px 16px 40px;display:flex;flex-direction:column;gap:7px;overflow-y:auto;}
-.pc-task{display:flex;align-items:flex-start;gap:12px;padding:14px 14px;border-radius:14px;border:1px solid;cursor:pointer;transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease;backdrop-filter:blur(8px);}
+.pc-task{display:flex;align-items:flex-start;gap:12px;padding:14px 14px;border-radius:14px;border:1px solid;cursor:pointer;transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease;}
 .pc-task:hover{transform:translateY(-2px);}
 .pc-checkbox{width:20px;height:20px;border-radius:5px;border:2px solid;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;transition:all .25s ease;}
 .pc-task-content{flex:1;min-width:0;}
@@ -1111,7 +1109,7 @@ html,body{background:#0a0a0a;color:#fff;font-family:var(--font-sans);min-height:
 .pc-modal-actions{display:flex;gap:8px;justify-content:center;margin-top:16px;}
 
 /* Level up */
-.pc-levelup-card{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(5,5,10,.95);backdrop-filter:blur(24px);border-radius:22px;border:1px solid;padding:50px 60px;text-align:center;animation:pc-level-up 4s ease forwards;}
+.pc-levelup-card{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#0c0c0c;border-radius:22px;border:1px solid;padding:50px 60px;text-align:center;animation:pc-level-up 4s ease forwards;}
 .pc-levelup-label{font-family:var(--font-mono);font-size:10px;letter-spacing:.3em;color:rgba(255,255,255,.4);margin-bottom:14px;}
 .pc-levelup-rank{font-family:var(--font-display);font-size:88px;font-weight:800;line-height:1;animation:pc-rank-glow 1s ease-in-out infinite;}
 .pc-levelup-name{font-family:var(--font-display);font-size:17px;color:rgba(255,255,255,.8);margin-top:12px;}
@@ -1142,5 +1140,5 @@ html,body{background:#0a0a0a;color:#fff;font-family:var(--font-sans);min-height:
 @supports(padding:max(0px)){
   .pc-bottom-nav{padding-bottom:max(0px,env(safe-area-inset-bottom));}
 }
-html,body{background:#0a0a0a;overflow-x:hidden;}
+
 `;
