@@ -443,7 +443,7 @@ function CreateHabitForm({ t, onClose, onCreate }) {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
-export default function HabitTracker({ t, onClose }) {
+export default function HabitTracker({ t, onClose, onHabitComplete }) {
   const [habits,        setHabits]        = useState([])
   const [loading,       setLoading]       = useState(true)
   const [showForm,      setShowForm]      = useState(false)
@@ -470,6 +470,7 @@ export default function HabitTracker({ t, onClose }) {
           ? { ...h, done_today:done, streak: done ? (h.streak||0)+1 : Math.max(0,(h.streak||0)-1) }
           : h
       ))
+      if (done && onHabitComplete) onHabitComplete(10)
     } catch {}
   }
 
