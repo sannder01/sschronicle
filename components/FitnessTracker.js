@@ -127,6 +127,7 @@ export default function FitnessTracker({ t }) {
     if (!w || w <= 0 || w > 500) return
     setWeight(w)
     setShowWeightForm(false)
+    setWeightInput('') // reset input after save
     try {
       await apiFetch('/api/fitness', {
         method: 'POST',
@@ -472,6 +473,7 @@ export default function FitnessTracker({ t }) {
             <div style={{ fontSize: 40, marginBottom: 8 }}>⚖️</div>
             <div style={{ fontSize: 16, fontWeight: 700, color: text, marginBottom: 16 }}>Введи свой вес</div>
             <input autoFocus type="number" step="0.1" placeholder="70.5" value={weightInput} onChange={e => setWeightInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); saveWeight() } }}
               style={{ background: bg, border: `1px solid ${bdr}`, borderRadius: 12, padding: '14px 16px', color: text, fontSize: 22, fontWeight: 700, outline: 'none', textAlign: 'center', width: '100%', boxSizing: 'border-box' }} />
             <div style={{ fontSize: 14, color: sub, marginTop: 6, marginBottom: 16 }}>кг</div>
             <button onClick={saveWeight}
