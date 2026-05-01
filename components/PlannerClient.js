@@ -144,6 +144,9 @@ export default function PlannerClient() {
   const cursorRafRef = useRef(null)
   const taskListRef = useRef(null)
 
+  // Track timeouts to prevent unmounted component state updates
+  const timeoutsRef = useRef([])
+
   // Swipe state
   const touchStartX = useRef(null)
   const touchStartY = useRef(null)
@@ -152,6 +155,11 @@ export default function PlannerClient() {
   useEffect(() => {
     if (taskListRef.current) taskListRef.current.scrollTop = 0
   }, [activeFolder])
+
+  // ── Cleanup Timeouts ─────────────────────────────────────────────
+  useEffect(() => {
+    return () => timeoutsRef.current.forEach(clearTimeout)
+  }, [])
 
   // ── Data Loading — wrapped in useCallback so useEffect dep is stable
   const loadData = useCallback(async () => {
@@ -266,8 +274,12 @@ export default function PlannerClient() {
       setXp(newXp); localStorage.setItem('chronicle_xp', String(newXp))
       const id = Date.now()
       setFloatingXP(prev => [...prev, { id, xp: earned }])
-      setTimeout(() => setFloatingXP(prev => prev.filter(x => x.id !== id)), 2000)
-      if (oldRank.rank !== newRank.rank) { setLevelUpData(newRank); setTimeout(() => setLevelUpData(null), 4000) }
+      timeoutsRef.current.push(setTimeout(() => setFloatingXP(prev => prev.filter(x => x.id !== id)), 2000))
+      
+      if (oldRank.rank !== newRank.rank) { 
+        setLevelUpData(newRank); 
+        timeoutsRef.current.push(setTimeout(() => setLevelUpData(null), 4000)) 
+      }
     } else {
       const newXp = Math.max(0, xp - getXP(task.priority))
       setXp(newXp); localStorage.setItem('chronicle_xp', String(newXp))
@@ -275,13 +287,30 @@ export default function PlannerClient() {
     try {
       const res = await fetch(`/api/tasks/${task.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ completed: !was }) })
       if (!res.ok) throw new Error('server error')
-    } catch { setTasks(tasks); localStorage.setItem('chronicle_tasks_cache', JSON.stringify(tasks)); setXp(prevXp) }
+    } catch { 
+      // Rollback to specific stale functional state instead of old closure cache
+      setTasks(prev => {
+        const restored = prev.map(tk => tk.id === task.id ? { ...tk, completed: was } : tk)
+        localStorage.setItem('chronicle_tasks_cache', JSON.stringify(restored))
+        return restored
+      })
+      setXp(prevXp)
+      localStorage.setItem('chronicle_xp', String(prevXp))
+    }
   }
 
   async function deleteTask(id) {
+    const prevTasks = tasks
     const updated = tasks.filter(tk => tk.id !== id)
     setTasks(updated); localStorage.setItem('chronicle_tasks_cache', JSON.stringify(updated)); setDeleteConfirm(null)
-    try { await fetch(`/api/tasks/${id}`, { method: 'DELETE' }) } catch {}
+    try { 
+      const res = await fetch(`/api/tasks/${id}`, { method: 'DELETE' }) 
+      if(!res.ok) throw new Error('Failed to delete')
+    } catch { 
+      alert('Ошибка соединения. Задание не удалено.')
+      setTasks(prevTasks)
+      localStorage.setItem('chronicle_tasks_cache', JSON.stringify(prevTasks))
+    }
   }
 
   async function createFolder(e) {
@@ -289,13 +318,15 @@ export default function PlannerClient() {
     if (!folderForm.name.trim()) return
     try {
       const res = await fetch('/api/folders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(folderForm) })
-      if (!res.ok) return
+      if (!res.ok) throw new Error('Server returned error')
       const created = await res.json()
-      if (!created?.id) return
+      if (!created?.id) throw new Error('Invalid response')
       const updated = [...folders, created]
       setFolders(updated); localStorage.setItem('chronicle_folders_cache', JSON.stringify(updated))
       setFolderForm({ name:'', emoji:'◆', color:'#888888' }); setShowFolderForm(false)
-    } catch {}
+    } catch {
+      alert('Ошибка при создании папки')
+    }
   }
 
   async function deleteFolder(id) {
@@ -319,8 +350,12 @@ export default function PlannerClient() {
           localStorage.setItem('chronicle_folders_cache', JSON.stringify(next))
           return next
         })
+      } else {
+        throw new Error('Save failed')
       }
-    } catch {}
+    } catch {
+      alert('Ошибка при переименовании папки')
+    }
     setEditingFolder(null)
   }
 
@@ -335,8 +370,16 @@ export default function PlannerClient() {
     const updates = { title: editForm.title.trim(), due_date: editForm.due_date||null, due_time: editForm.due_time||null, priority: editForm.priority, folder_id: editForm.folder_id ? Number(editForm.folder_id) : null }
     try {
       const res = await fetch(`/api/tasks/${editingTask.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updates) })
-      if (res.ok) { const updated = await res.json(); setTasks(prev => prev.map(tk => tk.id === updated.id ? updated : tk)); setEditingTask(null) }
-    } catch {}
+      if (res.ok) { 
+        const updated = await res.json(); 
+        setTasks(prev => prev.map(tk => tk.id === updated.id ? updated : tk)); 
+        setEditingTask(null) 
+      } else {
+        throw new Error('Update failed')
+      }
+    } catch {
+      alert('Ошибка при сохранении задания')
+    }
   }
 
   // ── Habit XP callback (called by HabitTracker) ────────────────────
@@ -345,13 +388,15 @@ export default function PlannerClient() {
     const oldRank = getRank(xp); const newRank = getRank(newXp)
     setXp(newXp)
     localStorage.setItem('chronicle_xp', String(newXp))
-    // FIX: renamed variable to avoid shadowing the outer `prev` callback arg
     const prevHabitXP = parseInt(localStorage.getItem('chronicle_habit_xp')||'0', 10)
     localStorage.setItem('chronicle_habit_xp', String(prevHabitXP + earnedXp))
     const id = Date.now()
     setFloatingXP(prev => [...prev, { id, xp: earnedXp }])
-    setTimeout(() => setFloatingXP(prev => prev.filter(x => x.id !== id)), 2000)
-    if (oldRank.rank !== newRank.rank) { setLevelUpData(newRank); setTimeout(() => setLevelUpData(null), 4000) }
+    timeoutsRef.current.push(setTimeout(() => setFloatingXP(prev => prev.filter(x => x.id !== id)), 2000))
+    if (oldRank.rank !== newRank.rank) { 
+      setLevelUpData(newRank); 
+      timeoutsRef.current.push(setTimeout(() => setLevelUpData(null), 4000)) 
+    }
   }
 
   function handleSignOut() { signOut({ callbackUrl: '/auth' }) }
@@ -421,9 +466,8 @@ export default function PlannerClient() {
       ))}
 
       {/* ── DELETE MODAL ── */}
-      {/* FIX: zIndex 900 > FitnessTracker modals at 800; type="button" on all non-submit buttons */}
       {deleteConfirm && (
-        <div className="pc-overlay" style={{ zIndex: 900 }} onClick={() => setDeleteConfirm(null)}>
+        <div className="pc-overlay" onClick={() => setDeleteConfirm(null)}>
           <div className="pc-modal" onClick={e => e.stopPropagation()} style={{ background: '#111', borderColor: `${t.danger}33` }}>
             <div className="pc-modal-icon"><DeleteIcon color={t.danger} /></div>
             <div className="pc-modal-title" style={{ color: t.text }}>Удалить задание?</div>
@@ -438,7 +482,7 @@ export default function PlannerClient() {
 
       {/* ── EDIT FOLDER MODAL ── */}
       {editingFolder && (
-        <div className="pc-overlay" style={{ zIndex: 900 }} onClick={() => setEditingFolder(null)}>
+        <div className="pc-overlay" onClick={() => setEditingFolder(null)}>
           <div className="pc-modal" onClick={e => e.stopPropagation()} style={{ background: '#111', borderColor: t.cardBorder }}>
             <div className="pc-modal-title" style={{ color: t.text }}>✏️ Переименовать папку</div>
             <form onSubmit={saveFolder} style={{ display:'flex', flexDirection:'column', gap:10 }}>
@@ -456,7 +500,7 @@ export default function PlannerClient() {
               </div>
               <div className="pc-modal-actions">
                 <button type="button" className="pc-btn-ghost" style={{ color: t.textSub, borderColor: t.cardBorder }} onClick={() => setEditingFolder(null)}>Отмена</button>
-                <button type="submit" className="pc-btn-primary" style={{ background: editFolderForm.color || '#fff', color: '#000' }}>Сохранить</button>
+                <button type="submit" className="pc-btn-primary" style={{ background: editFolderForm.color || '#fff', color: editFolderForm.color ? '#fff' : '#000' }}>Сохранить</button>
               </div>
             </form>
           </div>
@@ -465,7 +509,7 @@ export default function PlannerClient() {
 
       {/* ── EDIT TASK MODAL ── */}
       {editingTask && (
-        <div className="pc-overlay" style={{ zIndex: 900 }} onClick={e => e.target === e.currentTarget && setEditingTask(null)}>
+        <div className="pc-overlay" onClick={e => e.target === e.currentTarget && setEditingTask(null)}>
           <div className="pc-modal" style={{ background: '#111', borderColor: t.cardBorder }}>
             <div className="pc-modal-title" style={{ color: t.text }}>✏️ Редактировать задание</div>
             <form onSubmit={saveEditTask} style={{ display:'flex', flexDirection:'column', gap:10 }}>
@@ -518,7 +562,6 @@ export default function PlannerClient() {
                       <span className="pc-header-progress-text" style={{ color: t.textSub }}>{Math.round((completedCount/totalCount)*100)}%</span>
                     </div>
                   )}
-                  {/* FIX: type="button" to prevent accidental form submit */}
                   <button type="button" className="pc-add-btn" aria-label="Создать задание" style={{ background: t.text, color: '#000' }} onClick={() => setShowForm(true)}>
                     <span>+</span><span className="pc-add-btn-label">Задание</span>
                   </button>
@@ -532,7 +575,6 @@ export default function PlannerClient() {
                   const isActive = String(activeFolder) === String(folder.id)
                   return (
                     <div key={folder.id} className="pc-folder-tab-wrap">
-                      {/* FIX: type="button" */}
                       <button type="button" className="pc-folder-tab" onClick={() => setActiveFolder(folder.id)}
                         style={{ background: isActive ? t.surface : 'transparent', borderColor: isActive ? (folder.color||'rgba(255,255,255,0.4)') : t.cardBorder, color: isActive ? t.text : t.textSub, fontWeight: isActive ? 600 : 400 }}>
                         <span style={{ color: folder.color||t.textSub }}>{folder.emoji}</span>
@@ -841,7 +883,7 @@ export default function PlannerClient() {
 
       {/* ── GCAL MODAL ── */}
       {showGcalSync && (
-        <div className="pc-overlay" style={{ zIndex: 900 }} onClick={() => setShowGcalSync(false)}>
+        <div className="pc-overlay" onClick={() => setShowGcalSync(false)}>
           <div className="pc-modal" onClick={e => e.stopPropagation()} style={{ background:'#111', borderColor: t.cardBorder }}>
             <div className="pc-modal-title" style={{ color: t.text }}>📅 Google Календарь</div>
             <div className="pc-modal-sub" style={{ color: t.textSub }}>
@@ -883,18 +925,14 @@ function TaskCard({ task, t, index, onToggle, onDelete, onEdit, folders, complet
     <div className="pc-task task-card"
       style={{ background: t.card, borderColor: isUrgent ? `${t.danger}33` : t.cardBorder, opacity: completed ? 0.5 : 1, boxShadow: isUrgent ? `0 0 24px ${t.danger}10` : 'none', animationDelay: `${index*0.04}s` }}
       onClick={onToggle}>
-      {/* FIX Bug1: explicitly flex-shrink:0 on checkbox so it never squishes */}
       <div className="pc-checkbox"
         style={{ borderColor: completed ? t.success : priority.color, background: completed ? t.success : 'transparent', boxShadow: completed ? `0 0 10px ${t.success}44` : 'none', flexShrink: 0 }}>
         {completed && <CheckIcon />}
       </div>
-      {/* FIX Bug1: min-width:0 to allow flex child to shrink and text to wrap */}
       <div className="pc-task-content" style={{ minWidth: 0 }}>
-        {/* FIX Bug1: word-break + overflow-wrap for long titles without spaces */}
         <div className="pc-task-title" style={{ color: completed ? t.textSub : t.text, textDecoration: completed ? 'line-through' : 'none', textDecorationColor: 'rgba(255,255,255,0.25)', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
           {task.title}
         </div>
-        {/* FIX Bug1: meta row wraps; each badge has flex-shrink:0 */}
         <div className="pc-task-meta">
           <span className="pc-priority-badge" style={{ color: priority.color, background: `${priority.color}15`, borderColor: `${priority.color}28` }}>{priority.label}</span>
           {task.due_date && (
@@ -908,7 +946,6 @@ function TaskCard({ task, t, index, onToggle, onDelete, onEdit, folders, complet
           {!completed && <span className="pc-xp-reward" style={{ color: t.textMuted }}>+{getXP(task.priority)} XP</span>}
         </div>
       </div>
-      {/* FIX: type="button" + flex-shrink:0 on action buttons */}
       {!completed && <button type="button" className="pc-task-edit" style={{ color: t.textMuted, flexShrink: 0 }} onClick={e => { e.stopPropagation(); onEdit() }}>✎</button>}
       <button type="button" className="pc-task-delete" style={{ color: t.textMuted, flexShrink: 0 }} onClick={e => { e.stopPropagation(); onDelete() }}>✕</button>
     </div>
@@ -1015,7 +1052,6 @@ html,body{background:#0a0a0a;color:#fff;font-family:var(--font-sans);height:100%
   background:#0f0f0f;
   flex-shrink:0;
 }
-/* FIX Bug1: header-left min-width:0 so it doesn't push right section off screen */
 .pc-header-left{display:flex;align-items:center;gap:10px;min-width:0;flex:1;}
 .pc-header-folder{display:flex;align-items:center;gap:8px;min-width:0;}
 .pc-header-folder-emoji{font-size:16px;font-family:var(--font-mono);flex-shrink:0;}
@@ -1071,18 +1107,14 @@ html,body{background:#0a0a0a;color:#fff;font-family:var(--font-sans);height:100%
 /* ── Task list ── */
 .pc-task-list{flex:1;padding:12px 16px 40px;display:flex;flex-direction:column;gap:7px;overflow-y:auto;}
 
-/* FIX Bug1: overflow:hidden prevents card from visually expanding beyond bounds */
 .pc-task{display:flex;align-items:flex-start;gap:10px;padding:12px 12px;border-radius:14px;border:1px solid;cursor:pointer;transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease;overflow:hidden;}
 .pc-task:hover{transform:translateY(-2px);}
 .pc-checkbox{width:20px;height:20px;border-radius:5px;border:2px solid;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;transition:all .25s ease;}
 
-/* FIX Bug1: min-width:0 is the key — without it, flex children ignore their parent's boundary */
 .pc-task-content{flex:1;min-width:0;}
 
-/* FIX Bug1: word-break so titles without spaces still wrap */
 .pc-task-title{font-size:14px;font-weight:500;line-height:1.4;margin-bottom:6px;transition:color .2s;word-break:break-word;overflow-wrap:break-word;}
 
-/* FIX Bug1: flex-wrap so badges stack on narrow screens instead of overflowing */
 .pc-task-meta{display:flex;flex-wrap:wrap;align-items:center;gap:4px;min-width:0;}
 .pc-priority-badge{font-size:10px;font-weight:600;padding:2px 7px;border-radius:5px;border:1px solid;font-family:var(--font-mono);flex-shrink:0;}
 .pc-due-date{font-size:11px;display:flex;align-items:center;gap:4px;flex-shrink:0;flex-wrap:wrap;}
@@ -1125,8 +1157,8 @@ html,body{background:#0a0a0a;color:#fff;font-family:var(--font-sans);height:100%
 .pc-nav-dot{width:3px;height:3px;border-radius:50%;margin-top:2px;}
 
 /* ── Modals ── */
-/* FIX z-index: PlannerClient modals use z-index:900 inline (above FitnessTracker's 800) */
-.pc-overlay{position:fixed;inset:0;z-index:800;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;padding:24px;animation:pc-fade-in .2s ease;}
+/* FIX z-index: Reassigned to 900 globally to stay below Settings modal explicitly at 1000 */
+.pc-overlay{position:fixed;inset:0;z-index:900;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;padding:24px;animation:pc-fade-in .2s ease;}
 .pc-levelup-overlay{pointer-events:none;background:rgba(0,0,0,0.5);}
 .pc-modal{border-radius:20px;border:1px solid;padding:28px 24px;max-width:380px;width:100%;animation:pc-fade-up .3s ease;position:relative;}
 .pc-modal-wide{max-width:480px;}
@@ -1147,14 +1179,13 @@ html,body{background:#0a0a0a;color:#fff;font-family:var(--font-sans);height:100%
 @media(pointer:coarse){
   .pc-task{min-height:52px;}
   .pc-checkbox{width:24px;height:24px;}
-  /* FIX Bug1: on touch devices always show action buttons (no hover state) */
   .pc-task-delete,.pc-task-edit{opacity:.4!important;width:30px;height:30px;}
   .pc-btn-primary,.pc-btn-ghost,.pc-btn-danger{min-height:44px;}
   .pc-input{min-height:44px;}
   .pc-folder-tab{min-height:36px;padding:8px 12px;}
 }
 
-/* FIX Bug1: very narrow viewports (< 390px) — hide XP badge, reduce font sizes */
+/* Very narrow viewports (< 390px) */
 @media(max-width:390px){
   .pc-task{gap:8px;padding:10px 10px;}
   .pc-task-title{font-size:13px;}
