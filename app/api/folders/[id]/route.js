@@ -7,10 +7,12 @@ export async function PATCH(req, { params }) {
   if (!session?.user?.id) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { name, emoji, color } = await req.json()
+  if (!name?.trim()) return Response.json({ error: 'Name required' }, { status: 400 })
   const result = await query(
     'UPDATE folders SET name=$1, emoji=$2, color=$3 WHERE id=$4 AND user_id=$5 RETURNING *',
-    [name, emoji, color, params.id, session.user.id]
+    [name.trim(), emoji, color, params.id, session.user.id]
   )
+  if (!result.rows.length) return Response.json({ error: 'Not found' }, { status: 404 })
   return Response.json(result.rows[0])
 }
 
