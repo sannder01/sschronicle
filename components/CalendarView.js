@@ -41,11 +41,14 @@ export default function CalendarView({ tasks = [], theme = {}, onClose, inline =
   const [selected,  setSelected]  = useState(null) // Date | null
 
   // ── Build deadline map: "YYYY-MM-DD" → task[]
+  // Parse due_date as local time (not UTC) to avoid timezone-shifted dates
   const deadlineMap = useMemo(() => {
     const map = {}
     tasks.forEach(task => {
       if (!task.due_date) return
-      const d = new Date(task.due_date)
+      // Append T00:00:00 to force local time parsing (avoids UTC midnight shifting to previous day)
+      const dateStr = String(task.due_date).slice(0, 10)
+      const d = new Date(dateStr + 'T00:00:00')
       const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
       if (!map[key]) map[key] = []
       map[key].push(task)
@@ -96,7 +99,9 @@ export default function CalendarView({ tasks = [], theme = {}, onClose, inline =
 
   function getDaysLeft(due) {
     if (!due) return null
-    return Math.ceil((new Date(due) - new Date()) / 86400000)
+    const dueDate = new Date(String(due).slice(0, 10) + 'T00:00:00')
+    const today = new Date(); today.setHours(0,0,0,0)
+    return Math.ceil((dueDate - today) / 86400000)
   }
 
   return (
