@@ -6,23 +6,33 @@ export async function GET() {
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const result = await query(
-    'SELECT * FROM folders WHERE user_id = $1 ORDER BY created_at ASC',
-    [session.user.id]
-  )
-  return Response.json(result.rows)
+  try {
+    const result = await query(
+      'SELECT * FROM folders WHERE user_id = $1 ORDER BY created_at ASC',
+      [session.user.id]
+    )
+    return Response.json(result.rows)
+  } catch (err) {
+    console.error('[GET /api/folders]', err)
+    return Response.json({ error: 'Database error' }, { status: 500 })
+  }
 }
 
 export async function POST(req) {
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { name, emoji, color } = await req.json()
-  if (!name?.trim()) return Response.json({ error: 'Name required' }, { status: 400 })
+  try {
+    const { name, emoji, color } = await req.json()
+    if (!name?.trim()) return Response.json({ error: 'Name required' }, { status: 400 })
 
-  const result = await query(
-    'INSERT INTO folders (user_id, name, emoji, color) VALUES ($1,$2,$3,$4) RETURNING *',
-    [session.user.id, name.trim(), emoji || '📁', color || '#8B5CF6']
-  )
-  return Response.json(result.rows[0], { status: 201 })
+    const result = await query(
+      'INSERT INTO folders (user_id, name, emoji, color) VALUES ($1,$2,$3,$4) RETURNING *',
+      [session.user.id, name.trim(), emoji || '📁', color || '#8B5CF6']
+    )
+    return Response.json(result.rows[0], { status: 201 })
+  } catch (err) {
+    console.error('[POST /api/folders]', err)
+    return Response.json({ error: 'Database error' }, { status: 500 })
+  }
 }
