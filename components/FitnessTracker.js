@@ -40,7 +40,7 @@ async function apiFetch(url, opts = {}) {
 
 // ── Main Component ─────────────────────────────────────────────
 export default function FitnessTracker({ t }) {
-  const [date, setDate] = useState(todayISO())
+  const [date, setDate] = useState(todayISO)
 
   // Day data
   const [meals, setMeals] = useState([])
@@ -58,6 +58,8 @@ export default function FitnessTracker({ t }) {
   const [mealForm, setMealForm] = useState({ name: '', meal_type: 'lunch', calories: '', protein: '', fat: '', carbs: '' })
   const [showWeightForm, setShowWeightForm] = useState(false)
   const [weightInput, setWeightInput] = useState('')
+  // FIX Bug3: showSettings state is correct; root cause was z-index conflict.
+  // FitnessTracker modals use zIndex:1000 so they render above PlannerClient overlays (z:800).
   const [showSettings, setShowSettings] = useState(false)
   const [settingsForm, setSettingsForm] = useState({ calorie_goal: 2000, target_weight: '' })
   const [quickSearch, setQuickSearch] = useState('')
@@ -90,6 +92,7 @@ export default function FitnessTracker({ t }) {
   const totalP    = meals.reduce((s, m) => s + (m.protein  || 0), 0)
   const totalF    = meals.reduce((s, m) => s + (m.fat      || 0), 0)
   const totalC    = meals.reduce((s, m) => s + (m.carbs    || 0), 0)
+  // FIX Bug4: calPct is derived from calorieGoal state so it updates immediately after saveSettings
   const calPct    = Math.min((totalCal / calorieGoal) * 100, 100)
   const waterPct  = Math.min((waterMl / 2000) * 100, 100)
   const isToday   = date === todayISO()
@@ -127,7 +130,7 @@ export default function FitnessTracker({ t }) {
     if (!w || w <= 0 || w > 500) return
     setWeight(w)
     setShowWeightForm(false)
-    setWeightInput('') // reset input after save
+    setWeightInput('')
     try {
       await apiFetch('/api/fitness', {
         method: 'POST',
@@ -150,18 +153,27 @@ export default function FitnessTracker({ t }) {
     } catch {}
   }
 
+  // FIX Bug4: optimistic update BEFORE the API call so UI reflects changes instantly
   async function saveSettings(e) {
     e.preventDefault()
-    setCalorieGoal(Number(settingsForm.calorie_goal))
-    setTargetWeight(settingsForm.target_weight ? Number(settingsForm.target_weight) : null)
+    const newGoal = Number(settingsForm.calorie_goal) || 2000
+    const newTarget = settingsForm.target_weight ? Number(settingsForm.target_weight) : null
+    // 1. Optimistically update local state
+    setCalorieGoal(newGoal)
+    setTargetWeight(newTarget)
+    // 2. Close modal immediately so UI feels snappy
     setShowSettings(false)
+    // 3. Persist to API
     try {
       await apiFetch('/api/fitness/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ calorie_goal: Number(settingsForm.calorie_goal), target_weight: settingsForm.target_weight ? Number(settingsForm.target_weight) : null }),
+        body: JSON.stringify({ calorie_goal: newGoal, target_weight: newTarget }),
       })
-    } catch {}
+    } catch {
+      // On failure, reload from server to restore correct values
+      load()
+    }
   }
 
   function fillQuickFood(food) {
@@ -184,6 +196,7 @@ export default function FitnessTracker({ t }) {
   // ── Weight progress ───────────────────────────────────────────
   const currentW = weight || lastWeight
   const weightDiff = currentW && targetWeight ? (currentW - targetWeight).toFixed(1) : null
+  // FIX Bug4: weightProgress is re-derived from targetWeight state, updates instantly
   const weightProgress = currentW && targetWeight && history.length > 1
     ? (() => {
         const startW = history.filter(h => h.weight).sort((a,b) => a.date.localeCompare(b.date))[0]?.weight
@@ -211,14 +224,15 @@ export default function FitnessTracker({ t }) {
           <input type="date" value={date} onChange={e => setDate(e.target.value)}
             style={{ background: bg, border: `1px solid ${bdr}`, borderRadius: 10, padding: '8px 10px', color: text, fontSize: 13, colorScheme: 'dark', outline: 'none', cursor: 'pointer' }}
           />
-          <button onClick={() => setShowSettings(true)} style={{ background: bg, border: `1px solid ${bdr}`, borderRadius: 10, padding: '8px 10px', color: sub, fontSize: 18, cursor: 'pointer', lineHeight: 1 }}>⚙</button>
+          {/* FIX Bug3: type="button" prevents accidental form submit; zIndex:1000 in modal below */}
+          <button type="button" onClick={() => setShowSettings(true)} style={{ background: bg, border: `1px solid ${bdr}`, borderRadius: 10, padding: '8px 10px', color: sub, fontSize: 18, cursor: 'pointer', lineHeight: 1 }}>⚙</button>
         </div>
       </div>
 
       {/* ── TABS ─────────────────────────────────────────────────── */}
       <div style={{ display: 'flex', margin: '0 16px 16px', gap: 8 }}>
         {['today', 'history'].map(tab => (
-          <button key={tab} onClick={() => setActiveTab(tab)}
+          <button type="button" key={tab} onClick={() => setActiveTab(tab)}
             style={{ flex: 1, padding: '9px', borderRadius: 12, border: `1px solid ${activeTab === tab ? accent : bdr}`, background: activeTab === tab ? `${accent}18` : 'transparent', color: activeTab === tab ? accent : sub, fontWeight: 600, fontSize: 13, cursor: 'pointer', transition: 'all 0.2s' }}>
             {tab === 'today' ? '📊 Сегодня' : '📈 История'}
           </button>
@@ -275,7 +289,7 @@ export default function FitnessTracker({ t }) {
           {/* ── WEIGHT & WATER ROW ─────────────────────────────── */}
           <div style={{ display: 'flex', gap: 10, margin: '0 16px 12px' }}>
             {/* Weight */}
-            <div onClick={() => { setWeightInput(currentW || ''); setShowWeightForm(true) }}
+            <div onClick={() => { setWeightInput(currentW ? String(currentW) : ''); setShowWeightForm(true) }}
               style={{ ...card, flex: 1, cursor: 'pointer', textAlign: 'center', transition: 'opacity 0.2s', padding: '14px 12px' }}>
               <div style={{ fontSize: 24 }}>⚖️</div>
               <div style={{ fontSize: 22, fontWeight: 800, color: text, fontFamily: 'var(--font-display)', lineHeight: 1.2, marginTop: 4 }}>
@@ -301,7 +315,7 @@ export default function FitnessTracker({ t }) {
               </div>
               <div style={{ display: 'flex', gap: 6, marginTop: 10, justifyContent: 'center' }}>
                 {[200, 300, 500].map(ml => (
-                  <button key={ml} onClick={() => addWater(ml)}
+                  <button type="button" key={ml} onClick={() => addWater(ml)}
                     style={{ background: 'rgba(91,192,222,0.15)', border: '1px solid rgba(91,192,222,0.3)', borderRadius: 8, padding: '4px 8px', color: '#5BC0DE', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
                     +{ml}
                   </button>
@@ -337,7 +351,7 @@ export default function FitnessTracker({ t }) {
                       {items.reduce((s, i) => s + i.calories, 0)} ккал
                     </span>
                   )}
-                  <button onClick={() => { setMealForm(f => ({ ...f, meal_type: key })); setShowMealForm(true) }}
+                  <button type="button" onClick={() => { setMealForm(f => ({ ...f, meal_type: key })); setShowMealForm(true) }}
                     style={{ background: `${accent}18`, border: `1px solid ${accent}30`, borderRadius: 8, padding: '4px 10px', color: accent, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                     + добавить
                   </button>
@@ -345,17 +359,17 @@ export default function FitnessTracker({ t }) {
               </div>
               {items.map(item => (
                 <div key={item.id} style={{ display: 'flex', alignItems: 'center', padding: '8px 0', borderTop: `1px solid ${bdr}` }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, color: text, fontWeight: 500 }}>{item.name}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, color: text, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
                     {(item.protein || item.fat || item.carbs) > 0 && (
                       <div style={{ fontSize: 11, color: sub, marginTop: 2 }}>
                         Б{Math.round(item.protein||0)} · Ж{Math.round(item.fat||0)} · У{Math.round(item.carbs||0)}
                       </div>
                     )}
                   </div>
-                  <span style={{ fontSize: 14, fontWeight: 700, color: accent, marginRight: 12 }}>{item.calories}</span>
-                  <button onClick={() => deleteMeal(item.id)}
-                    style={{ background: 'none', border: 'none', color: sub, cursor: 'pointer', fontSize: 16, padding: 4, opacity: 0.5 }}>✕</button>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: accent, marginRight: 12, flexShrink: 0 }}>{item.calories}</span>
+                  <button type="button" onClick={() => deleteMeal(item.id)}
+                    style={{ background: 'none', border: 'none', color: sub, cursor: 'pointer', fontSize: 16, padding: 4, opacity: 0.5, flexShrink: 0 }}>✕</button>
                 </div>
               ))}
             </div>
@@ -377,7 +391,8 @@ export default function FitnessTracker({ t }) {
                   return pts.map((p, i) => {
                     const h = ((p.weight - min) / (max - min)) * 70 + 10
                     return (
-                      <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                      // FIX: use stable key from data, not index
+                      <div key={p.date} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
                         <div style={{ width: '100%', height: h, background: accent, borderRadius: 4, opacity: 0.7 + i / pts.length * 0.3, minHeight: 10 }} title={`${p.weight} кг — ${formatDate(p.date)}`} />
                       </div>
                     )
@@ -393,8 +408,9 @@ export default function FitnessTracker({ t }) {
               <div style={{ textAlign: 'center', color: sub, padding: '20px 0' }}>Нет данных о калориях.</div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {history.filter(h => h.calories > 0).slice(-7).reverse().map((d, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {history.filter(h => h.calories > 0).slice(-7).reverse().map(d => (
+                  // FIX: key from d.date, not array index
+                  <div key={d.date} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span style={{ fontSize: 11, color: sub, width: 60, flexShrink: 0 }}>{formatDate(d.date)}</span>
                     <div style={{ flex: 1, height: 20, background: bdr, borderRadius: 6, overflow: 'hidden', position: 'relative' }}>
                       <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${Math.min((d.calories / calorieGoal) * 100, 100)}%`, background: d.calories > calorieGoal ? '#FF4466' : accent, borderRadius: 6, transition: 'width 0.4s' }} />
@@ -409,74 +425,88 @@ export default function FitnessTracker({ t }) {
       )}
 
       {/* ── ADD MEAL MODAL ────────────────────────────────────── */}
+      {/* FIX Bug2: bottom-sheet uses height:'auto' (not height:'85vh') so it only takes what it needs.
+          overflowY:'auto' kicks in only when content exceeds maxHeight:'85vh'.
+          Added drag-handle indicator at the top for improved UX. */}
       {showMealForm && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 800, display: 'flex', alignItems: 'flex-end', padding: 0 }} onClick={() => setShowMealForm(false)}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', padding: 0 }} onClick={() => setShowMealForm(false)}>
           <div onClick={e => e.stopPropagation()}
-            style={{ width: '100%', background: t?.bg || '#0c0c0c', borderRadius: '20px 20px 0 0', border: `1px solid ${bdr}`, padding: '20px 16px 40px', maxHeight: '85vh', overflowY: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: text }}>Добавить приём пищи</div>
-              <button onClick={() => setShowMealForm(false)} style={{ background: 'none', border: 'none', color: sub, fontSize: 20, cursor: 'pointer' }}>✕</button>
+            style={{ width: '100%', background: t?.bg || '#0c0c0c', borderRadius: '20px 20px 0 0', border: `1px solid ${bdr}`, borderBottom: 'none', paddingBottom: 40, maxHeight: '85vh', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+
+            {/* FIX Bug2: drag handle indicator */}
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 4px', flexShrink: 0 }}>
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.2)' }} />
             </div>
 
-            {/* Quick search */}
-            <div style={{ marginBottom: 14 }}>
-              <input placeholder="🔍 Быстрый поиск еды..." value={quickSearch} onChange={e => setQuickSearch(e.target.value)}
-                style={{ width: '100%', background: bg, border: `1px solid ${bdr}`, borderRadius: 10, padding: '10px 14px', color: text, fontSize: 14, outline: 'none', boxSizing: 'border-box' }} />
-              {filteredQuick.length > 0 && (
-                <div style={{ marginTop: 6, borderRadius: 10, border: `1px solid ${bdr}`, overflow: 'hidden' }}>
-                  {filteredQuick.map((f, i) => (
-                    <div key={i} onClick={() => fillQuickFood(f)}
-                      style={{ padding: '10px 14px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', background: bg, borderTop: i > 0 ? `1px solid ${bdr}` : 'none' }}>
-                      <span style={{ color: text, fontSize: 13 }}>{f.name}</span>
-                      <span style={{ color: accent, fontSize: 13, fontWeight: 600 }}>{f.cal} ккал</span>
-                    </div>
+            <div style={{ padding: '8px 16px 16px', flexShrink: 0 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <div style={{ fontSize: 16, fontWeight: 700, color: text }}>Добавить приём пищи</div>
+                <button type="button" onClick={() => setShowMealForm(false)} style={{ background: 'none', border: 'none', color: sub, fontSize: 20, cursor: 'pointer', padding: 4 }}>✕</button>
+              </div>
+
+              {/* Quick search */}
+              <div style={{ marginBottom: 14 }}>
+                <input placeholder="🔍 Быстрый поиск еды..." value={quickSearch} onChange={e => setQuickSearch(e.target.value)}
+                  style={{ width: '100%', background: bg, border: `1px solid ${bdr}`, borderRadius: 10, padding: '10px 14px', color: text, fontSize: 14, outline: 'none', boxSizing: 'border-box' }} />
+                {filteredQuick.length > 0 && (
+                  <div style={{ marginTop: 6, borderRadius: 10, border: `1px solid ${bdr}`, overflow: 'hidden' }}>
+                    {filteredQuick.map((f, i) => (
+                      // FIX: key by food name (unique in QUICK_FOODS)
+                      <div key={f.name} onClick={() => fillQuickFood(f)}
+                        style={{ padding: '10px 14px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', background: bg, borderTop: i > 0 ? `1px solid ${bdr}` : 'none' }}>
+                        <span style={{ color: text, fontSize: 13 }}>{f.name}</span>
+                        <span style={{ color: accent, fontSize: 13, fontWeight: 600 }}>{f.cal} ккал</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <form onSubmit={addMeal} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {/* Meal type */}
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {MEAL_TYPES.map(mt => (
+                    <button key={mt.key} type="button" onClick={() => setMealForm(f => ({ ...f, meal_type: mt.key }))}
+                      style={{ padding: '7px 12px', borderRadius: 10, border: `1px solid ${mealForm.meal_type === mt.key ? accent : bdr}`, background: mealForm.meal_type === mt.key ? `${accent}18` : 'transparent', color: mealForm.meal_type === mt.key ? accent : sub, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                      {mt.emoji} {mt.label}
+                    </button>
                   ))}
                 </div>
-              )}
+
+                <input required placeholder="Название блюда" value={mealForm.name} onChange={e => setMealForm(f => ({ ...f, name: e.target.value }))}
+                  style={{ background: bg, border: `1px solid ${bdr}`, borderRadius: 10, padding: '11px 14px', color: text, fontSize: 14, outline: 'none' }} />
+                {/* FIX: inputMode="decimal" for numeric keyboard on mobile */}
+                <input required placeholder="Калории (ккал)" type="number" inputMode="decimal" value={mealForm.calories} onChange={e => setMealForm(f => ({ ...f, calories: e.target.value }))}
+                  style={{ background: bg, border: `1px solid ${bdr}`, borderRadius: 10, padding: '11px 14px', color: text, fontSize: 14, outline: 'none' }} />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+                  {[['protein', 'Белки (г)', '#5BC0DE'], ['fat', 'Жиры (г)', '#F0A30A'], ['carbs', 'Углеводы (г)', '#8B5CF6']].map(([key, ph, c]) => (
+                    <input key={key} placeholder={ph} type="number" inputMode="decimal" value={mealForm[key]} onChange={e => setMealForm(f => ({ ...f, [key]: e.target.value }))}
+                      style={{ background: bg, border: `1px solid ${bdr}`, borderRadius: 10, padding: '10px 12px', color: c, fontSize: 13, outline: 'none' }} />
+                  ))}
+                </div>
+                <button type="submit"
+                  style={{ background: accent, border: 'none', borderRadius: 12, padding: '13px', color: '#000', fontWeight: 700, fontSize: 15, cursor: 'pointer', marginTop: 4 }}>
+                  Добавить
+                </button>
+              </form>
             </div>
-
-            <form onSubmit={addMeal} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {/* Meal type */}
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {MEAL_TYPES.map(mt => (
-                  <button key={mt.key} type="button" onClick={() => setMealForm(f => ({ ...f, meal_type: mt.key }))}
-                    style={{ padding: '7px 12px', borderRadius: 10, border: `1px solid ${mealForm.meal_type === mt.key ? accent : bdr}`, background: mealForm.meal_type === mt.key ? `${accent}18` : 'transparent', color: mealForm.meal_type === mt.key ? accent : sub, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                    {mt.emoji} {mt.label}
-                  </button>
-                ))}
-              </div>
-
-              <input required placeholder="Название блюда" value={mealForm.name} onChange={e => setMealForm(f => ({ ...f, name: e.target.value }))}
-                style={{ background: bg, border: `1px solid ${bdr}`, borderRadius: 10, padding: '11px 14px', color: text, fontSize: 14, outline: 'none' }} />
-              <input required placeholder="Калории (ккал)" type="number" value={mealForm.calories} onChange={e => setMealForm(f => ({ ...f, calories: e.target.value }))}
-                style={{ background: bg, border: `1px solid ${bdr}`, borderRadius: 10, padding: '11px 14px', color: text, fontSize: 14, outline: 'none' }} />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-                {[['protein', 'Белки (г)', '#5BC0DE'], ['fat', 'Жиры (г)', '#F0A30A'], ['carbs', 'Углеводы (г)', '#8B5CF6']].map(([key, ph, c]) => (
-                  <input key={key} placeholder={ph} type="number" value={mealForm[key]} onChange={e => setMealForm(f => ({ ...f, [key]: e.target.value }))}
-                    style={{ background: bg, border: `1px solid ${bdr}`, borderRadius: 10, padding: '10px 12px', color: c, fontSize: 13, outline: 'none' }} />
-                ))}
-              </div>
-              <button type="submit"
-                style={{ background: accent, border: 'none', borderRadius: 12, padding: '13px', color: '#000', fontWeight: 700, fontSize: 15, cursor: 'pointer', marginTop: 4 }}>
-                Добавить
-              </button>
-            </form>
           </div>
         </div>
       )}
 
       {/* ── WEIGHT INPUT MODAL ──────────────────────────────── */}
       {showWeightForm && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }} onClick={() => setShowWeightForm(false)}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }} onClick={() => setShowWeightForm(false)}>
           <div onClick={e => e.stopPropagation()}
             style={{ background: t?.bg || '#0c0c0c', borderRadius: 20, border: `1px solid ${bdr}`, padding: '28px 24px', width: '100%', maxWidth: 300, textAlign: 'center' }}>
             <div style={{ fontSize: 40, marginBottom: 8 }}>⚖️</div>
             <div style={{ fontSize: 16, fontWeight: 700, color: text, marginBottom: 16 }}>Введи свой вес</div>
-            <input autoFocus type="number" step="0.1" placeholder="70.5" value={weightInput} onChange={e => setWeightInput(e.target.value)}
+            {/* FIX: inputMode="decimal" for numeric keyboard */}
+            <input autoFocus type="number" step="0.1" inputMode="decimal" placeholder="70.5" value={weightInput} onChange={e => setWeightInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); saveWeight() } }}
               style={{ background: bg, border: `1px solid ${bdr}`, borderRadius: 12, padding: '14px 16px', color: text, fontSize: 22, fontWeight: 700, outline: 'none', textAlign: 'center', width: '100%', boxSizing: 'border-box' }} />
             <div style={{ fontSize: 14, color: sub, marginTop: 6, marginBottom: 16 }}>кг</div>
-            <button onClick={saveWeight}
+            <button type="button" onClick={saveWeight}
               style={{ background: accent, border: 'none', borderRadius: 12, padding: '12px 0', color: '#000', fontWeight: 700, fontSize: 15, cursor: 'pointer', width: '100%' }}>
               Сохранить
             </button>
@@ -485,20 +515,23 @@ export default function FitnessTracker({ t }) {
       )}
 
       {/* ── SETTINGS MODAL ──────────────────────────────────── */}
+      {/* FIX Bug3: zIndex:1000 ensures this renders above PlannerClient overlays (z:800).
+          FIX Bug4: saveSettings now optimistically updates calorieGoal+targetWeight state before API call. */}
       {showSettings && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }} onClick={() => setShowSettings(false)}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }} onClick={() => setShowSettings(false)}>
           <div onClick={e => e.stopPropagation()}
             style={{ background: t?.bg || '#0c0c0c', borderRadius: 20, border: `1px solid ${bdr}`, padding: '28px 24px', width: '100%', maxWidth: 360 }}>
             <div style={{ fontSize: 16, fontWeight: 700, color: text, marginBottom: 20 }}>⚙️ Настройки фитнеса</div>
             <form onSubmit={saveSettings} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div>
                 <label style={{ display: 'block', fontSize: 12, color: sub, marginBottom: 6 }}>Цель по калориям (ккал)</label>
-                <input type="number" value={settingsForm.calorie_goal} onChange={e => setSettingsForm(f => ({ ...f, calorie_goal: e.target.value }))}
+                {/* FIX: inputMode="decimal" for numeric keyboard on mobile */}
+                <input type="number" inputMode="decimal" value={settingsForm.calorie_goal} onChange={e => setSettingsForm(f => ({ ...f, calorie_goal: e.target.value }))}
                   style={{ background: bg, border: `1px solid ${bdr}`, borderRadius: 10, padding: '10px 14px', color: text, fontSize: 15, outline: 'none', width: '100%', boxSizing: 'border-box' }} />
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: 12, color: sub, marginBottom: 6 }}>Целевой вес (кг)</label>
-                <input type="number" step="0.1" placeholder="Например: 70" value={settingsForm.target_weight} onChange={e => setSettingsForm(f => ({ ...f, target_weight: e.target.value }))}
+                <input type="number" step="0.1" inputMode="decimal" placeholder="Например: 70" value={settingsForm.target_weight} onChange={e => setSettingsForm(f => ({ ...f, target_weight: e.target.value }))}
                   style={{ background: bg, border: `1px solid ${bdr}`, borderRadius: 10, padding: '10px 14px', color: text, fontSize: 15, outline: 'none', width: '100%', boxSizing: 'border-box' }} />
               </div>
               <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
