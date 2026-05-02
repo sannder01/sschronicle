@@ -1,5 +1,3 @@
-// app/api/tasks/[id]/route.js
-
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { query } from '@/lib/db'
@@ -40,54 +38,61 @@ export async function PATCH(req, { params }) {
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { id } = await params
-  const updates = await req.json()
+  try {
+    const { id } = await params
+    const updates = await req.json()
 
-  const allowed = ['completed', 'title', 'due_date', 'due_time', 'priority', 'folder_id']
-  const fields = []
-  const vals = []
-  let idx = 1
+    const allowed = ['completed', 'title', 'due_date', 'due_time', 'priority', 'folder_id']
+    const fields = []
+    const vals = []
+    let idx = 1
 
-  for (const key of allowed) {
-    if (updates[key] !== undefined) {
-      fields.push(`${key} = $${idx++}`)
-      vals.push(updates[key])
+    for (const key of allowed) {
+      if (updates[key] !== undefined) {
+        fields.push(`${key} = $${idx++}`)
+        vals.push(updates[key])
+      }
     }
+
+    // Sync status field with completed so Telegram bot shows correct icon
+    if (updates.completed !== undefined) {
+      fields.push(`status = $${idx++}`)
+      vals.push(updates.completed ? 'done' : 'todo')
+    }
+
+    if (!fields.length) return Response.json({ error: 'Nothing to update' }, { status: 400 })
+
+    vals.push(id, session.user.id)
+
+    const result = await query(
+      `UPDATE tasks SET ${fields.join(', ')} WHERE id = $${idx} AND user_id = $${idx + 1} RETURNING *`,
+      vals
+    )
+
+    if (!result.rows.length) return Response.json({ error: 'Not found' }, { status: 404 })
+    const updated = result.rows[0]
+
+    if (updates.completed !== undefined) {
+      notifyTelegramStatusChange(session.user.id, updated)
+    }
+
+    return Response.json(updated)
+  } catch (err) {
+    console.error('[PATCH /api/tasks/:id]', err)
+    return Response.json({ error: 'Database error' }, { status: 500 })
   }
-
-  // FIX: sync status field with completed so Telegram bot shows correct icon
-  // Bot uses `status` field: 'done' = ✅, 'todo' = 🔲
-  if (updates.completed !== undefined) {
-    fields.push(`status = $${idx++}`)
-    vals.push(updates.completed ? 'done' : 'todo')
-  }
-
-  if (!fields.length) return Response.json({ error: 'Nothing to update' }, { status: 400 })
-
-  // updated_at column does not exist in schema — removed
-  vals.push(id, session.user.id)
-
-  const result = await query(
-    `UPDATE tasks SET ${fields.join(', ')} WHERE id = $${idx} AND user_id = $${idx + 1} RETURNING *`,
-    vals
-  )
-
-  if (!result.rows.length) return Response.json({ error: 'Not found' }, { status: 404 })
-  const updated = result.rows[0]
-
-  // Notify on completed OR un-completed
-  if (updates.completed !== undefined) {
-    notifyTelegramStatusChange(session.user.id, updated)
-  }
-
-  return Response.json(updated)
 }
 
 export async function DELETE(req, { params }) {
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { id } = await params
-  await query('DELETE FROM tasks WHERE id = $1 AND user_id = $2', [id, session.user.id])
-  return Response.json({ ok: true })
+  try {
+    const { id } = await params
+    await query('DELETE FROM tasks WHERE id = $1 AND user_id = $2', [id, session.user.id])
+    return Response.json({ ok: true })
+  } catch (err) {
+    console.error('[DELETE /api/tasks/:id]', err)
+    return Response.json({ error: 'Database error' }, { status: 500 })
+  }
 }
