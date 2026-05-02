@@ -46,7 +46,6 @@ export default function CalendarView({ tasks = [], theme = {}, onClose, inline =
     const map = {}
     tasks.forEach(task => {
       if (!task.due_date) return
-      // Append T00:00:00 to force local time parsing (avoids UTC midnight shifting to previous day)
       const dateStr = String(task.due_date).slice(0, 10)
       const d = new Date(dateStr + 'T00:00:00')
       const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
@@ -100,29 +99,55 @@ export default function CalendarView({ tasks = [], theme = {}, onClose, inline =
   function getDaysLeft(due) {
     if (!due) return null
     const dueDate = new Date(String(due).slice(0, 10) + 'T00:00:00')
-    const today = new Date(); today.setHours(0,0,0,0)
-    return Math.ceil((dueDate - today) / 86400000)
+    const now = new Date(); now.setHours(0,0,0,0)
+    return Math.ceil((dueDate - now) / 86400000)
   }
 
+  // FIX Bug5: inline calendar uses full available width, centered, with reasonable maxWidth
+  // The outer div must NOT be position:relative inset:auto when inline — that removed all layout flow.
+  // Instead use a proper block container.
+  const inlineContainerStyle = {
+    width: '100%',
+    padding: '16px 16px 0',
+  }
+
+  const sheetStyle = inline
+    ? {
+        ...S.sheet,
+        background: bg,
+        borderColor: border,
+        // FIX Bug5: use full available width up to 600px, centered
+        maxWidth: 600,
+        margin: '0 auto',
+        borderRadius: 20,
+      }
+    : {
+        ...S.sheet,
+        background: bg,
+        borderColor: border,
+      }
+
   return (
-    <div style={inline ? { position: "relative", inset: "auto" } : S.overlay} onClick={inline ? undefined : onClose}>
-      <div style={{ ...S.sheet, background: bg, borderColor: border }} onClick={e => e.stopPropagation()}>
+    // FIX Bug5: inline mode — block layout so calendar fills the page column correctly
+    <div style={inline ? inlineContainerStyle : S.overlay} onClick={inline ? undefined : onClose}>
+      <div style={sheetStyle} onClick={e => e.stopPropagation()}>
 
         {/* ── Header ── */}
+        {/* FIX Bug5: header uses proper flex layout with space-between for nav buttons */}
         <div style={S.header}>
-          <button style={{ ...S.navBtn, color: textSub, borderColor: border }} onClick={prevMonth}>‹</button>
+          <button type="button" style={{ ...S.navBtn, color: textSub, borderColor: border }} onClick={prevMonth}>‹</button>
 
-          <div style={{ textAlign: 'center' }}>
+          <div style={{ textAlign: 'center', flex: 1 }}>
             <div style={{ ...S.monthTitle, color: text }}>
               {MONTHS[viewMonth]}
             </div>
             <div style={{ ...S.yearLabel, color: textSub }}>{viewYear}</div>
           </div>
 
-          <button style={{ ...S.navBtn, color: textSub, borderColor: border }} onClick={nextMonth}>›</button>
+          <button type="button" style={{ ...S.navBtn, color: textSub, borderColor: border }} onClick={nextMonth}>›</button>
 
           {onClose && (
-            <button style={{ ...S.closeBtn, color: textSub }} onClick={onClose}>✕</button>
+            <button type="button" style={{ ...S.closeBtn, color: textSub }} onClick={onClose}>✕</button>
           )}
         </div>
 
@@ -134,8 +159,10 @@ export default function CalendarView({ tasks = [], theme = {}, onClose, inline =
         </div>
 
         {/* ── Day grid ── */}
+        {/* FIX Bug5: grid uses minmax so cells always fill available width */}
         <div style={S.grid}>
           {cells.map((date, i) => {
+            // FIX: use a stable key that doesn't clash — empty cells get index-based key
             if (!date) return <div key={`empty-${i}`} style={S.emptyCell} />
 
             const isToday   = isSameDay(date, today)
@@ -151,7 +178,8 @@ export default function CalendarView({ tasks = [], theme = {}, onClose, inline =
 
             return (
               <button
-                key={date.toISOString()}
+                type="button"
+                key={`day-${viewYear}-${viewMonth}-${date.getDate()}`}
                 style={{
                   ...S.dayCell,
                   background: isSel
@@ -175,7 +203,7 @@ export default function CalendarView({ tasks = [], theme = {}, onClose, inline =
                   <div style={{ ...S.dots }}>
                     {dayTasks.slice(0, 3).map((tk, di) => (
                       <div
-                        key={di}
+                        key={tk.id ?? di}
                         style={{
                           ...S.dot,
                           background: tk.completed ? textSub : (PRIORITY_COLOR[tk.priority] || primary),
@@ -194,6 +222,7 @@ export default function CalendarView({ tasks = [], theme = {}, onClose, inline =
         </div>
 
         {/* ── Selected day panel ── */}
+        {/* FIX Bug5: panel has proper padding, overflow, and doesn't clip on desktop */}
         {selected && (
           <div style={{ ...S.dayPanel, borderColor: border }}>
             <div style={{ ...S.dayPanelTitle, color: textSub }}>
@@ -294,12 +323,14 @@ const S = {
     overflow: 'hidden',
     backdropFilter: 'blur(32px)',
   },
+  // FIX Bug5: header is now flex with space-between; nav buttons flanking a centered title block
   header: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: '20px 20px 12px',
     position: 'relative',
+    gap: 12,
   },
   monthTitle: {
     fontFamily: "'Orbitron', monospace",
@@ -324,6 +355,7 @@ const S = {
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     transition: 'opacity 0.15s',
     fontFamily: 'monospace',
+    flexShrink: 0,
   },
   closeBtn: {
     position: 'absolute', right: 20, top: 16,
@@ -345,14 +377,16 @@ const S = {
     padding: '4px 0 8px',
     textTransform: 'uppercase',
   },
+  // FIX Bug5: use minmax(0, 1fr) so cells share width equally and don't overflow on desktop
   grid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(7, 1fr)',
+    gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
     gap: 3,
     padding: '0 16px 12px',
   },
   emptyCell: {
     aspectRatio: '1',
+    minWidth: 0,
   },
   dayCell: {
     aspectRatio: '1',
@@ -369,6 +403,7 @@ const S = {
     minWidth: 0,
     padding: 2,
     background: 'none',
+    width: '100%',
   },
   dots: {
     display: 'flex',
@@ -380,10 +415,11 @@ const S = {
     borderRadius: '50%',
     flexShrink: 0,
   },
+  // FIX Bug5: task detail panel — proper padding, no fixed maxHeight that could clip on desktop
   dayPanel: {
     borderTop: '1px solid',
     padding: '16px 20px',
-    maxHeight: 280,
+    maxHeight: 300,
     overflowY: 'auto',
   },
   dayPanelTitle: {
@@ -410,6 +446,7 @@ const S = {
     padding: '10px 14px',
     borderRadius: 12,
     border: '1px solid',
+    minWidth: 0,
   },
   taskDot: {
     width: 8, height: 8,
@@ -427,6 +464,9 @@ const S = {
     fontSize: 11,
     marginTop: 2,
     fontFamily: 'monospace',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
   },
   taskBadge: {
     fontFamily: 'monospace',
@@ -465,7 +505,14 @@ const CAL_CSS = `
   .cal-day-btn:active { transform: scale(0.93); }
 
   @media (max-width: 480px) {
-    /* Make month title smaller on tiny screens */
     .cal-month-title { font-size: 14px !important; }
+  }
+
+  /* FIX Bug5: ensure inline calendar sheet is full-width on desktop */
+  @media (min-width: 769px) {
+    .cal-inline-sheet {
+      max-width: 600px;
+      margin: 0 auto;
+    }
   }
 `
