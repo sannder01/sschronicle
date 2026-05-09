@@ -945,3 +945,5 @@ function EmptyState({ t, activeFolder, setShowForm }) {
 }
 
 // ─── Icons ────────────────────────────────────────────────────────
+function CheckIcon() { return <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="#000" strokeWidth="1.5" strokeLinecap="round"/></svg> }
+function DeleteIcon({ color }) { return <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M6 8h16M10 8V6h8v2M11 12v7M17 12v7" stroke={color} strokeWidth="1.5" strokeLinecap="round"/><rect x="7" y="8" width="14" height="14" rx="3" stroke={color} strokeWidth="1.5"/></svg> }
