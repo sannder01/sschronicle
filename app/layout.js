@@ -1,4 +1,5 @@
 // app/layout.js — Chronicle v2.0
+import './globals.css'
 import Providers from '@/components/Providers'
 
 export const metadata = {
@@ -45,9 +46,10 @@ export default function RootLayout({ children }) {
           media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3)"
           href="/splash-430x932.png" />
 
-        {/* Font preconnect for faster load */}
+        {/* Fonts */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap" />
 
         {/* PWA session preservation */}
         <script dangerouslySetInnerHTML={{ __html: `
