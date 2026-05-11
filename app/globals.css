@@ -46,9 +46,13 @@ html,body{background:#0a0a0a;color:#fff;font-family:var(--font-sans);height:100%
 .pc-root{position:relative;z-index:2;display:flex;flex-direction:column;height:100dvh;min-height:100vh;overflow:hidden;background:#0a0a0a;}
 
 /* ── Page system ── */
-.pc-pages-outer{flex:1;overflow:hidden;}
+/* FIX: min-height:0 on outer and page ensures the flex chain can shrink so
+   .pc-task-list can be the sole overflow:auto zone. */
+/* NOTE: width:500% + page width:20% assumes exactly 5 pages. Update both if
+   page count changes (e.g. 4 pages → 400% / 25%). */
+.pc-pages-outer{flex:1;overflow:hidden;min-height:0;}
 .pc-pages-inner{display:flex;width:500%;height:100%;transition:transform 0.35s cubic-bezier(0.4,0,0.2,1);}
-.pc-page{width:20%;height:100%;display:flex;flex-direction:column;overflow:hidden;}
+.pc-page{width:20%;height:100%;display:flex;flex-direction:column;overflow:hidden;min-height:0;}
 
 /* ── Header ── */
 .pc-header{
@@ -91,7 +95,8 @@ html,body{background:#0a0a0a;color:#fff;font-family:var(--font-sans);height:100%
 .pc-folder-inline-form{display:flex;align-items:center;gap:6px;flex-shrink:0;}
 
 /* ── Form ── */
-.pc-form-wrapper{padding:12px 16px 0;animation:pc-fade-up .3s ease;flex-shrink:0;}
+/* FIX: was padding-bottom:0, leaving no gap between form bottom and first task card */
+.pc-form-wrapper{padding:12px 16px 8px;animation:pc-fade-up .3s ease;flex-shrink:0;}
 .pc-form{border-radius:16px;border:1px solid;padding:18px 16px 20px;margin-bottom:4px;}
 .pc-form-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
 .pc-form-label{font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;}
@@ -112,9 +117,23 @@ html,body{background:#0a0a0a;color:#fff;font-family:var(--font-sans);height:100%
 .pc-btn-danger{border:none;border-radius:11px;padding:10px 18px;color:#fff;cursor:pointer;font-family:var(--font-sans);font-size:13px;font-weight:600;transition:all .2s;}
 
 /* ── Task list ── */
-.pc-task{display:flex;align-items:flex-start;gap:10px;padding:12px 12px;border-radius:14px;border:1px solid;cursor:pointer;transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease;overflow:hidden;user-select:none;-webkit-user-select:none;outline:none;}
+/* FIX: scrollable task list container — flex:1 + min-height:0 breaks out of the
+   collapsed flex chain; overflow-y:auto enables scroll; -webkit-overflow-scrolling
+   enables momentum scrolling on iOS Safari */
+.pc-task-list{
+  flex:1;
+  overflow-y:auto;
+  min-height:0; /* critical: flex children won't shrink below content size otherwise */
+  -webkit-overflow-scrolling:touch;
+  padding:12px 16px;
+  padding-bottom:calc(env(safe-area-inset-bottom, 0px) + 16px);
+  display:flex;
+  flex-direction:column;
+  gap:7px;
+}
 
-.pc-task{display:flex;align-items:flex-start;gap:10px;padding:12px 12px;border-radius:14px;border:1px solid;cursor:pointer;transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease;overflow:hidden;}
+/* FIX: deduplicated .pc-task — merged user-select/outline from first copy into single rule */
+.pc-task{display:flex;align-items:flex-start;gap:10px;padding:12px 12px;border-radius:14px;border:1px solid;cursor:pointer;transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease;overflow:hidden;user-select:none;-webkit-user-select:none;outline:none;}
 .pc-task:hover{transform:translateY(-2px);}
 .pc-checkbox{width:20px;height:20px;border-radius:5px;border:2px solid;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;transition:all .25s ease;}
 
@@ -138,7 +157,9 @@ html,body{background:#0a0a0a;color:#fff;font-family:var(--font-sans);height:100%
 .pc-section-divider{display:flex;align-items:center;gap:10px;font-size:10px;font-family:var(--font-mono);letter-spacing:.08em;padding:6px 0;opacity:.4;}
 .pc-section-divider span:not(:nth-child(2)){flex:1;height:1px;background:currentColor;opacity:.3;}
 .pc-loading-list{display:flex;flex-direction:column;gap:7px;}
-.pc-skeleton{height:66px;border-radius:14px;background-size:200% 100%;animation:pc-shimmer 1.5s ease infinite;}
+/* FIX: added background-image gradient — without it background-position animation
+   has nothing to move and the shimmer effect is invisible */
+.pc-skeleton{height:66px;border-radius:14px;background-image:linear-gradient(90deg,rgba(255,255,255,0.04) 0%,rgba(255,255,255,0.10) 50%,rgba(255,255,255,0.04) 100%);background-size:200% 100%;animation:pc-shimmer 1.5s ease infinite;}
 .pc-empty{text-align:center;padding:60px 20px;animation:pc-fade-up .4s ease;}
 .pc-empty-icon{margin-bottom:16px;}
 .pc-empty-title{font-family:var(--font-display);font-size:18px;font-weight:700;margin-bottom:6px;}
@@ -146,6 +167,9 @@ html,body{background:#0a0a0a;color:#fff;font-family:var(--font-sans);height:100%
 .pc-empty-cta{margin:0 auto;display:inline-flex;}
 
 /* ── Bottom nav ── */
+/* NOTE: z-index:10 is fine here. .pc-overlay uses position:fixed + z-index:800
+   which paints above everything in the stacking context, including this nav.
+   No change needed for modal coverage. */
 .pc-bottom-nav{
   display:flex;align-items:center;justify-content:space-around;
   height:60px;flex-shrink:0;
@@ -184,9 +208,13 @@ html,body{background:#0a0a0a;color:#fff;font-family:var(--font-sans);height:100%
 
 /* Touch */
 @media(pointer:coarse){
+  /* FIX: hide custom cursor elements — they're mouse-only, useless on touch */
+  .pc-cursor-dot,.pc-cursor-ring{display:none;}
   .pc-task{min-height:52px;}
   .pc-checkbox{width:24px;height:24px;}
-  .pc-task-delete,.pc-task-edit{opacity:.4!important;width:30px;height:30px;}
+  /* FIX: opacity:.4 makes delete/edit tappable but barely visible on touch.
+     Raised to .6 for better discoverability; !important needed to beat .pc-task:hover rule */
+  .pc-task-delete,.pc-task-edit{opacity:.6!important;width:30px;height:30px;}
   .pc-btn-primary,.pc-btn-ghost,.pc-btn-danger{min-height:44px;}
   .pc-input{min-height:44px;}
   .pc-folder-tab{min-height:36px;padding:8px 12px;}
