@@ -470,7 +470,7 @@ export default function HabitTracker({ t, onClose, onHabitComplete }) {
           ? { ...h, done_today:done, streak: done ? (h.streak||0)+1 : Math.max(0,(h.streak||0)-1) }
           : h
       ))
-      if (done && onHabitComplete) onHabitComplete(10)
+      if (onHabitComplete) onHabitComplete(done ? 10 : -10)
     } catch {}
   }
 
