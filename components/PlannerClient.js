@@ -801,9 +801,9 @@ export default function PlannerClient() {
                 <div style={{ background: t.card, border:`1px solid ${t.cardBorder}`, borderRadius:16, padding:'16px', marginBottom:12 }}>
                   <div style={{ fontSize:14, fontWeight:600, color: t.text, marginBottom:6 }}>✈️ Telegram бот</div>
                   <div style={{ fontSize:12, color: t.textSub, lineHeight:1.5, marginBottom:12 }}>Получай уведомления о дедлайнах прямо в Telegram.</div>
-                  <a href="https://t.me/chroniclenotifybot" target="_blank" rel="noopener noreferrer"
+                  <a href="https://t.me/sannder01_Bot" target="_blank" rel="noopener noreferrer"
                     style={{ display:'block', textAlign:'center', background: t.surface, border:`1px solid ${t.cardBorder}`, borderRadius:10, padding:'10px', color: t.text, textDecoration:'none', fontSize:13, fontWeight:600 }}>
-                    Открыть @chroniclenotifybot
+                    Открыть @sannder01_Bot
                   </a>
                 </div>
 
