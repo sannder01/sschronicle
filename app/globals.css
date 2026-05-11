@@ -112,7 +112,7 @@ html,body{background:#0a0a0a;color:#fff;font-family:var(--font-sans);height:100%
 .pc-btn-danger{border:none;border-radius:11px;padding:10px 18px;color:#fff;cursor:pointer;font-family:var(--font-sans);font-size:13px;font-weight:600;transition:all .2s;}
 
 /* ── Task list ── */
-.pc-task-list{flex:1;padding:12px 16px 40px;display:flex;flex-direction:column;gap:7px;overflow-y:auto;}
+.pc-task{display:flex;align-items:flex-start;gap:10px;padding:12px 12px;border-radius:14px;border:1px solid;cursor:pointer;transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease;overflow:hidden;user-select:none;-webkit-user-select:none;outline:none;}
 
 .pc-task{display:flex;align-items:flex-start;gap:10px;padding:12px 12px;border-radius:14px;border:1px solid;cursor:pointer;transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease;overflow:hidden;}
 .pc-task:hover{transform:translateY(-2px);}
