@@ -64,6 +64,7 @@ export default function NotesPage({ t }) {
           name: newFolderName.trim(),
           icon: newFolderIcon,
           color: newFolderColor,
+          entityType: 'note',
         }),
       })
       if (!res.ok) { console.error('Folder create failed:', res.status); return }
