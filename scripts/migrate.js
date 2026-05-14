@@ -184,6 +184,24 @@ async function migrate() {
     `)
     console.log('✅ fitness tables ready')
 
+    // ── Notes ────────────────────────────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS notes (
+        id         SERIAL PRIMARY KEY,
+        user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        folder_id  INTEGER REFERENCES folders(id) ON DELETE SET NULL,
+        title      TEXT DEFAULT '',
+        content    TEXT DEFAULT '',
+        updated_at TIMESTAMPTZ DEFAULT NOW(),
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `)
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_notes_user   ON notes(user_id);
+      CREATE INDEX IF NOT EXISTS idx_notes_folder ON notes(folder_id);
+    `)
+    console.log('✅ notes table ready')
+
     console.log('\n🎉 Migration complete! All tables are ready.')
   } catch (err) {
     console.error('❌ Migration error:', err.message)
