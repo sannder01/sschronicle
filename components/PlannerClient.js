@@ -11,6 +11,7 @@ import CalendarView from './CalendarView'
 import CharacterPanel from './CharacterPanel'
 import HabitTracker from './HabitTracker'
 import FitnessTracker from './FitnessTracker'
+import NotesPage from './NotesPage'
 
 // ═══════════════════════════════════════════════════════════════════
 //  THEME — clean monochrome, task priority colors preserved
@@ -101,6 +102,7 @@ const PAGES = [
   { id: 2, label: 'Персонаж',  icon: '⚔️' },
   { id: 3, label: 'Календарь', icon: '📅' },
   { id: 4, label: 'Профиль',   icon: '👤' },
+  { id: 5, label: 'Заметки',   icon: '📝' },
 ]
 
 // ═══════════════════════════════════════════════════════════════════
@@ -494,7 +496,7 @@ export default function PlannerClient() {
 
         {/* ── PAGES ── */}
         <div className="pc-pages-outer">
-          <div className="pc-pages-inner" style={{ transform: `translateX(-${activePage * 20}%)` }}>
+          <div className="pc-pages-inner" style={{ transform: `translateX(-${activePage * (100/6)}%)` }}>
 
             {/* ══ PAGE 0: TASKS ══════════════════════════════════════════ */}
             <div className="pc-page">
@@ -819,6 +821,11 @@ export default function PlannerClient() {
                   <div style={{ fontSize:10, color: `${t.textMuted}88`, marginTop:4 }}>v3.0 · {new Date().getFullYear()}</div>
                 </div>
               </div>
+            </div>
+
+            {/* ── СТРАНИЦА 6: ЗАМЕТКИ ── */}
+            <div className="pc-page">
+              <NotesPage t={t} />
             </div>
 
           </div>
