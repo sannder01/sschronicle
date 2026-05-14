@@ -92,70 +92,45 @@ export default function NotesPage({ t }) {
 
   // ─── Notes Logic ────────────────────────────────────
   const createNote = async () => {
-    if (!activeFolder) return
-    try {
-      const res = await fetch('/api/notes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ folderId: activeFolder.id, title: '', content: '' }),
-      })
-      if (!res.ok) { console.error('Note create failed:', res.status); return }
-      const note = await res.json()
-      setNotes(prev => [note, ...prev])
-      setActiveNote(note)
-      setNoteTitle('')
-      setNoteContent('')
-      setView('editor')
-      setTimeout(() => textareaRef.current?.focus(), 120)
-    } catch (err) {
-      console.error('[NotesPage] createNote:', err)
-    }
-  }
-
-  const autoSave = useCallback((title, content) => {
-    if (!activeNote) return
-    clearTimeout(saveTimerRef.current)
-    setSaving(true)
-    saveTimerRef.current = setTimeout(async () => {
-      try {
-        await fetch(`/api/notes/${activeNote.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title, content }),
-        })
-        setNotes(prev =>
-          prev.map(n =>
-            n.id === activeNote.id
-              ? { ...n, title, content, updated_at: new Date().toISOString() }
-              : n
-          )
-        )
-      } catch (err) {
-        console.error('[NotesPage] autoSave:', err)
-      } finally {
-        setSaving(false)
-      }
-    }, 800)
-  }, [activeNote])
-
-  const handleTitleChange = (val) => {
-    setNoteTitle(val)
-    autoSave(val, noteContent)
-  }
-  const handleContentChange = (val) => {
-    setNoteContent(val)
-    autoSave(noteTitle, val)
-  }
-
-  const deleteNote = async (id) => {
-    try {
-      await fetch(`/api/notes/${id}`, { method: 'DELETE' })
-      setNotes(prev => prev.filter(n => n.id !== id))
-      setView('notesList')
-    } catch (err) {
-      console.error('[NotesPage] deleteNote:', err)
-    }
-  }
+     if (!activeFolder) return
+   
+     try {
+       console.log('ACTIVE FOLDER:', activeFolder)
+   
+       const res = await fetch('/api/notes', {
+         method: 'POST',
+         headers: {
+           'Content-Type': 'application/json',
+         },
+         body: JSON.stringify({
+           folder_id: activeFolder.id,
+           title: '',
+           content: '',
+         }),
+       })
+   
+       if (!res.ok) {
+         const err = await res.text()
+         console.error('Note create failed:', err)
+         return
+       }
+   
+       const note = await res.json()
+   
+       setNotes(prev => [note, ...prev])
+       setActiveNote(note)
+       setNoteTitle('')
+       setNoteContent('')
+       setView('editor')
+   
+       setTimeout(() => {
+         textareaRef.current?.focus()
+       }, 120)
+   
+     } catch (err) {
+       console.error('[NotesPage] createNote:', err)
+     }
+   }
 
   // ─── Helpers ────────────────────────────────────────
   const formatDate = (iso) => {
