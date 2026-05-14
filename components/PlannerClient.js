@@ -157,7 +157,7 @@ export default function PlannerClient() {
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
-      const [tasksRes, foldersRes] = await Promise.all([fetch('/api/tasks'), fetch('/api/folders')])
+      const [tasksRes, foldersRes] = await Promise.all([fetch('/api/tasks'), fetch('/api/folders?type=task')])
       const tasksData = await tasksRes.json()
       const foldersData = await foldersRes.json()
       const safeTasks = Array.isArray(tasksData) ? tasksData : []
@@ -288,7 +288,7 @@ export default function PlannerClient() {
     e.preventDefault()
     if (!folderForm.name.trim()) return
     try {
-      const res = await fetch('/api/folders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(folderForm) })
+      const res = await fetch('/api/folders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...folderForm, entityType: 'task' }) })
       if (!res.ok) return
       const created = await res.json()
       if (!created?.id) return
