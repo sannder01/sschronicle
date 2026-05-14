@@ -1,26 +1,39 @@
-import db from '@/lib/db'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { query } from '@/lib/db'
 
 export async function GET() {
-  const result = await db.query(`
-    SELECT * FROM notes
-    ORDER BY updated_at DESC
-  `)
+  const session = await getServerSession(authOptions)
+  if (!session?.user?.id) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
-  return Response.json(result.rows)
+  try {
+    const result = await query(
+      'SELECT * FROM notes WHERE user_id = $1 ORDER BY updated_at DESC',
+      [session.user.id]
+    )
+    return Response.json(result.rows)
+  } catch (err) {
+    console.error('[GET /api/notes]', err)
+    return Response.json({ error: 'Database error' }, { status: 500 })
+  }
 }
 
 export async function POST(req) {
-  const body = await req.json()
+  const session = await getServerSession(authOptions)
+  if (!session?.user?.id) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { id, folderId, title, content } = body
+  try {
+    const { folderId, title, content } = await req.json()
 
-  await db.query(
-    `
-    INSERT INTO notes (id, folder_id, title, content)
-    VALUES ($1, $2, $3, $4)
-    `,
-    [id, folderId, title, content]
-  )
-
-  return Response.json({ success: true })
+    const result = await query(
+      `INSERT INTO notes (user_id, folder_id, title, content)
+       VALUES ($1, $2, $3, $4)
+       RETURNING *`,
+      [session.user.id, folderId, title || '', content || '']
+    )
+    return Response.json(result.rows[0], { status: 201 })
+  } catch (err) {
+    console.error('[POST /api/notes]', err)
+    return Response.json({ error: 'Database error' }, { status: 500 })
+  }
 }
