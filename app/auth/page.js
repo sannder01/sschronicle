@@ -405,7 +405,7 @@ const FEATURES = [
       </svg>
     ),
     title: 'XP & Ранги',
-    sub: 'Система Solo Leveling: E → SSS',
+    sub: 'Система E → SSS',
   },
   {
     icon: (
@@ -432,7 +432,7 @@ const FEATURES = [
 ];
 
 const RANKS_PREVIEW = [
-  { rank: 'SSS', label: 'Sung Jin-Woo',    color: '#E040FB' },
+  { rank: 'SSS', label: 'absolute',    color: '#E040FB' },
   { rank: 'SS',  label: 'Shadow Sovereign', color: '#FFD700' },
   { rank: 'S',   label: 'Monarch',          color: '#E63946' },
   { rank: 'A',   label: 'Raid Commander',   color: '#F0A30A' },
