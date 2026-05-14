@@ -10,8 +10,8 @@ import { signOut, useSession } from 'next-auth/react'
 import CalendarView from './CalendarView'
 import CharacterPanel from './CharacterPanel'
 import HabitTracker from './HabitTracker'
-import FitnessTracker from './FitnessTracker'
 import NotesPage from './NotesPage'
+import AchievementsPage from './AchievementsPage'
 
 // ═══════════════════════════════════════════════════════════════════
 //  THEME — clean monochrome, task priority colors preserved
@@ -97,12 +97,13 @@ const DEFAULT_FOLDERS = [
 //  PAGE DEFINITIONS
 // ═══════════════════════════════════════════════════════════════════
 const PAGES = [
-  { id: 0, label: 'Задачи',    icon: '◈' },
-  { id: 1, label: 'Привычки',  icon: '🔥' },
-  { id: 2, label: 'Персонаж',  icon: '⚔️' },
-  { id: 3, label: 'Календарь', icon: '📅' },
-  { id: 4, label: 'Профиль',   icon: '👤' },
-  { id: 5, label: 'Заметки',   icon: '📝' },
+  { id: 0, label: 'Задачи',      icon: '◈' },
+  { id: 1, label: 'Привычки',    icon: '🔥' },
+  { id: 2, label: 'Персонаж',    icon: '⚔️' },
+  { id: 3, label: 'Календарь',   icon: '📅' },
+  { id: 4, label: 'Профиль',     icon: '👤' },
+  { id: 5, label: 'Заметки',     icon: '📝' },
+  { id: 6, label: 'Достижения',  icon: '🏆' },
 ]
 
 // ═══════════════════════════════════════════════════════════════════
@@ -134,9 +135,6 @@ export default function PlannerClient() {
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [editingTask, setEditingTask] = useState(null)
   const [editForm, setEditForm] = useState({ title: '', due_date: '', due_time: '', priority: 'medium', folder_id: '' })
-
-  const [showGcalSync, setShowGcalSync] = useState(false)
-  const [gcalStatus, setGcalStatus] = useState(null)
 
   const canvasRef = useRef(null)
   const animRef = useRef(null)
@@ -496,7 +494,7 @@ export default function PlannerClient() {
 
         {/* ── PAGES ── */}
         <div className="pc-pages-outer">
-          <div className="pc-pages-inner" style={{ transform: `translateX(-${activePage * (100/6)}%)` }}>
+          <div className="pc-pages-inner" style={{ transform: `translateX(-${activePage * (100/7)}%)` }}>
 
             {/* ══ PAGE 0: TASKS ══════════════════════════════════════════ */}
             <div className="pc-page">
@@ -725,22 +723,6 @@ export default function PlannerClient() {
                     ))}
                   </div>
 
-                  {/* Google Calendar sync */}
-                  <div style={{ background: t.card, border:`1px solid ${t.cardBorder}`, borderRadius:16, padding:'16px', marginTop:10 }}>
-                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
-                      <div style={{ fontSize:14, fontWeight:600, color: t.text }}>📅 Google Календарь</div>
-                      <span style={{ fontSize:11, color: gcalStatus === 'connected' ? t.success : t.textSub, fontFamily:'var(--font-mono)' }}>
-                        {gcalStatus === 'connected' ? '● Подключён' : '○ Не подключён'}
-                      </span>
-                    </div>
-                    <div style={{ fontSize:12, color: t.textSub, lineHeight:1.5, marginBottom:12 }}>
-                      Синхронизируй задачи с Google Календарём. Задачи с дедлайном будут отображаться там и обратно.
-                    </div>
-                    <button type="button" onClick={() => setShowGcalSync(true)}
-                      style={{ background: gcalStatus === 'connected' ? t.surface : '#fff', color: gcalStatus === 'connected' ? t.text : '#000', border:'none', borderRadius:10, padding:'10px 16px', fontWeight:600, fontSize:13, cursor:'pointer', width:'100%' }}>
-                      {gcalStatus === 'connected' ? '🔄 Синхронизировать сейчас' : '🔗 Подключить Google Календарь'}
-                    </button>
-                  </div>
                 </div>
               </div>
             </div>
@@ -753,72 +735,196 @@ export default function PlannerClient() {
                   <span className="pc-header-folder-name" style={{ color: t.text }}>Профиль</span>
                 </div>
               </header>
-              <div style={{ flex:1, overflowY:'auto', padding:'16px 16px 100px' }}>
+              <div style={{ flex:1, overflowY:'auto', padding:'16px 16px 100px',
+                scrollbarWidth:'thin', scrollbarColor:'rgba(255,255,255,0.15) transparent' }}>
 
-                {/* User card */}
-                <div style={{ background: t.card, border:`1px solid ${t.cardBorder}`, borderRadius:18, padding:'20px', marginBottom:12, display:'flex', alignItems:'center', gap:14 }}>
+                {/* ── Карточка пользователя ── */}
+                <div style={{ background: t.card, border:`1px solid ${t.cardBorder}`, borderRadius:20,
+                  padding:'24px 20px', marginBottom:16, textAlign:'center' }}>
                   {session?.user?.image ? (
-                    <img src={session.user.image} alt="avatar" style={{ width:56, height:56, borderRadius:'50%', border:`2px solid ${t.cardBorder}`, objectFit:'cover' }} />
+                    <img src={session.user.image} alt="avatar"
+                      style={{ width:72, height:72, borderRadius:'50%',
+                        border:`3px solid rgba(255,255,255,0.15)`, objectFit:'cover', marginBottom:12 }} />
                   ) : (
-                    <div style={{ width:56, height:56, borderRadius:'50%', background: t.surface, border:`2px solid ${t.cardBorder}`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:24 }}>👤</div>
+                    <div style={{ width:72, height:72, borderRadius:'50%', background: t.surface,
+                      border:`3px solid rgba(255,255,255,0.15)`, display:'flex', alignItems:'center',
+                      justifyContent:'center', fontSize:28, margin:'0 auto 12px' }}>👤</div>
                   )}
-                  <div>
-                    <div style={{ fontSize:16, fontWeight:700, color: t.text }}>{session?.user?.name || 'Пользователь'}</div>
-                    <div style={{ fontSize:12, color: t.textSub, marginTop:2 }}>{session?.user?.email}</div>
-                    <div style={{ fontSize:11, color: rankInfo.color, marginTop:4, fontFamily:'var(--font-mono)', letterSpacing:'0.08em' }}>
-                      {rankInfo.rank} — {rankInfo.label}
-                    </div>
+                  <div style={{ fontSize:18, fontWeight:700, color: t.text }}>
+                    {session?.user?.name || 'Пользователь'}
+                  </div>
+                  <div style={{ fontSize:13, color: t.textSub, marginTop:4 }}>
+                    {session?.user?.email}
+                  </div>
+                  <div style={{ display:'inline-flex', alignItems:'center', gap:6, marginTop:10,
+                    background:'rgba(255,255,255,0.06)', borderRadius:20, padding:'6px 14px' }}>
+                    <span style={{ fontSize:14, color: rankInfo.color }}>◆</span>
+                    <span style={{ fontSize:12, color: rankInfo.color, fontFamily:'var(--font-mono)',
+                      letterSpacing:'0.06em', fontWeight:600 }}>
+                      {rankInfo.rank} · {rankInfo.label}
+                    </span>
+                  </div>
+                  <div style={{ display:'flex', gap:16, marginTop:16, justifyContent:'center' }}>
+                    {[
+                      { label: 'XP', value: xp },
+                      { label: 'Задач', value: completedCount },
+                      { label: 'Папок', value: folders.length },
+                    ].map(s => (
+                      <div key={s.label} style={{ textAlign:'center' }}>
+                        <div style={{ fontSize:18, fontWeight:700, color: t.text }}>{s.value}</div>
+                        <div style={{ fontSize:11, color: t.textMuted }}>{s.label}</div>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
-                {/* Fitness section */}
-                <div style={{ marginBottom: 6 }}>
-                  <div style={{ fontSize:11, color: t.textSub, letterSpacing:'0.12em', fontFamily:'var(--font-mono)', marginBottom:10, paddingLeft:2 }}>ФИТНЕС И ЗДОРОВЬЕ</div>
-                  <FitnessTracker t={t} />
+                {/* ── Уведомления ── */}
+                <div style={{ fontSize:11, color: t.textSub, letterSpacing:'0.12em',
+                  fontFamily:'var(--font-mono)', marginBottom:10, paddingLeft:4 }}>УВЕДОМЛЕНИЯ</div>
+                <div style={{ background: t.card, border:`1px solid ${t.cardBorder}`,
+                  borderRadius:16, overflow:'hidden', marginBottom:16 }}>
+                  {[
+                    { icon:'🔔', label:'Push-уведомления', sub:'Дедлайны и напоминания', toggle: true },
+                    { icon:'✈️', label:'Telegram бот', sub:'@sannder01_Bot', action: () =>
+                        window.open('https://t.me/sannder01_Bot','_blank') },
+                  ].map((item, i, arr) => (
+                    <div key={item.label} style={{ display:'flex', alignItems:'center', gap:12,
+                      padding:'14px 16px',
+                      borderBottom: i < arr.length-1 ? `1px solid ${t.cardBorder}` : 'none' }}>
+                      <span style={{ fontSize:18, width:28, textAlign:'center' }}>{item.icon}</span>
+                      <div style={{ flex:1 }}>
+                        <div style={{ fontSize:14, fontWeight:500, color: t.text }}>{item.label}</div>
+                        <div style={{ fontSize:11, color: t.textSub, marginTop:2 }}>{item.sub}</div>
+                      </div>
+                      {item.toggle && (
+                        <div style={{ width:44, height:26, borderRadius:13,
+                          background:'rgba(255,255,255,0.1)', border:`1px solid rgba(255,255,255,0.15)`,
+                          display:'flex', alignItems:'center', padding:3, cursor:'pointer' }}>
+                          <div style={{ width:18, height:18, borderRadius:'50%',
+                            background:'rgba(255,255,255,0.3)', transition:'transform .2s' }} />
+                        </div>
+                      )}
+                      {item.action && (
+                        <button onClick={item.action}
+                          style={{ background:'rgba(255,255,255,0.07)', border:`1px solid rgba(255,255,255,0.1)`,
+                            borderRadius:8, padding:'6px 12px', color: t.text, fontSize:12,
+                            cursor:'pointer', fontFamily:'inherit' }}>
+                          Открыть
+                        </button>
+                      )}
+                    </div>
+                  ))}
                 </div>
 
-                {/* Auth section */}
-                <div style={{ marginBottom: 6 }}>
-                  <div style={{ fontSize:11, color: t.textSub, letterSpacing:'0.12em', fontFamily:'var(--font-mono)', marginBottom:10, paddingLeft:2, marginTop:16 }}>АККАУНТ</div>
-                  <div style={{ background: t.card, border:`1px solid ${t.cardBorder}`, borderRadius:16, overflow:'hidden' }}>
-                    <div style={{ padding:'14px 16px', display:'flex', alignItems:'center', gap:10, borderBottom:`1px solid ${t.cardBorder}` }}>
-                      <span style={{ fontSize:20 }}>G</span>
+                {/* ── Внешний вид ── */}
+                <div style={{ fontSize:11, color: t.textSub, letterSpacing:'0.12em',
+                  fontFamily:'var(--font-mono)', marginBottom:10, paddingLeft:4 }}>ВНЕШНИЙ ВИД</div>
+                <div style={{ background: t.card, border:`1px solid ${t.cardBorder}`,
+                  borderRadius:16, overflow:'hidden', marginBottom:16 }}>
+                  {[
+                    { icon:'🌙', label:'Тёмная тема', sub:'Активна', badge:'Активна', badgeColor: t.success },
+                    { icon:'🎨', label:'Акцентный цвет', sub:'Монохромный', badge:'Белый' },
+                    { icon:'✦', label:'Анимации', sub:'Частицы и эффекты', toggle: true, defaultOn: true },
+                  ].map((item, i, arr) => (
+                    <div key={item.label} style={{ display:'flex', alignItems:'center', gap:12,
+                      padding:'14px 16px',
+                      borderBottom: i < arr.length-1 ? `1px solid ${t.cardBorder}` : 'none' }}>
+                      <span style={{ fontSize:18, width:28, textAlign:'center' }}>{item.icon}</span>
                       <div style={{ flex:1 }}>
-                        <div style={{ fontSize:13, fontWeight:600, color: t.text }}>Google</div>
-                        <div style={{ fontSize:11, color: t.success }}>● Подключён</div>
+                        <div style={{ fontSize:14, fontWeight:500, color: t.text }}>{item.label}</div>
+                        <div style={{ fontSize:11, color: t.textSub, marginTop:2 }}>{item.sub}</div>
+                      </div>
+                      {item.badge && (
+                        <span style={{ fontSize:11, color: item.badgeColor || t.textMuted,
+                          background:'rgba(255,255,255,0.06)', borderRadius:6, padding:'3px 8px',
+                          fontFamily:'var(--font-mono)' }}>
+                          {item.badge}
+                        </span>
+                      )}
+                      {item.toggle && (
+                        <div style={{ width:44, height:26, borderRadius:13,
+                          background: item.defaultOn ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.08)',
+                          border:`1px solid rgba(255,255,255,0.15)`,
+                          display:'flex', alignItems:'center', padding:3,
+                          justifyContent: item.defaultOn ? 'flex-end' : 'flex-start', cursor:'pointer' }}>
+                          <div style={{ width:18, height:18, borderRadius:'50%',
+                            background: item.defaultOn ? '#fff' : 'rgba(255,255,255,0.3)' }} />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* ── Аккаунт ── */}
+                <div style={{ fontSize:11, color: t.textSub, letterSpacing:'0.12em',
+                  fontFamily:'var(--font-mono)', marginBottom:10, paddingLeft:4 }}>АККАУНТ</div>
+                <div style={{ background: t.card, border:`1px solid ${t.cardBorder}`,
+                  borderRadius:16, overflow:'hidden', marginBottom:16 }}>
+                  {[
+                    { icon:'G', label:'Google', sub:'● Подключён', subColor: t.success },
+                    { icon:'🍎', label:'Apple ID', sub:'Требует Apple Developer', badge:'Скоро' },
+                  ].map((item, i, arr) => (
+                    <div key={item.label} style={{ display:'flex', alignItems:'center', gap:12,
+                      padding:'14px 16px',
+                      borderBottom: i < arr.length-1 ? `1px solid ${t.cardBorder}` : 'none' }}>
+                      <div style={{ width:28, height:28, borderRadius:8, background:'rgba(255,255,255,0.1)',
+                        display:'flex', alignItems:'center', justifyContent:'center',
+                        fontSize:13, fontWeight:700, color: t.text }}>
+                        {item.icon}
+                      </div>
+                      <div style={{ flex:1 }}>
+                        <div style={{ fontSize:14, fontWeight:500, color: t.text }}>{item.label}</div>
+                        <div style={{ fontSize:11, color: item.subColor || t.textSub, marginTop:2 }}>
+                          {item.sub}
+                        </div>
+                      </div>
+                      {item.badge && (
+                        <span style={{ fontSize:11, color: t.textMuted,
+                          background: t.surface, padding:'3px 8px', borderRadius:6,
+                          fontFamily:'var(--font-mono)' }}>
+                          {item.badge}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* ── О приложении ── */}
+                <div style={{ fontSize:11, color: t.textSub, letterSpacing:'0.12em',
+                  fontFamily:'var(--font-mono)', marginBottom:10, paddingLeft:4 }}>О ПРИЛОЖЕНИИ</div>
+                <div style={{ background: t.card, border:`1px solid ${t.cardBorder}`,
+                  borderRadius:16, overflow:'hidden', marginBottom:16 }}>
+                  {[
+                    { icon:'📋', label:'Chronicle', sub:'v3.0 · Personal Intelligence System' },
+                    { icon:'👤', label:'Автор', sub:'Sander Samarin' },
+                    { icon:'⚡', label:'Движок', sub:'Next.js · PostgreSQL · NextAuth' },
+                  ].map((item, i, arr) => (
+                    <div key={item.label} style={{ display:'flex', alignItems:'center', gap:12,
+                      padding:'12px 16px',
+                      borderBottom: i < arr.length-1 ? `1px solid ${t.cardBorder}` : 'none' }}>
+                      <span style={{ fontSize:16, width:28, textAlign:'center' }}>{item.icon}</span>
+                      <div style={{ flex:1 }}>
+                        <div style={{ fontSize:13, fontWeight:500, color: t.text }}>{item.label}</div>
+                        <div style={{ fontSize:11, color: t.textSub, marginTop:1 }}>{item.sub}</div>
                       </div>
                     </div>
-                    <div style={{ padding:'14px 16px', display:'flex', alignItems:'center', gap:10 }}>
-                      <span style={{ fontSize:20 }}>🍎</span>
-                      <div style={{ flex:1 }}>
-                        <div style={{ fontSize:13, fontWeight:600, color: t.text }}>Apple ID</div>
-                        <div style={{ fontSize:11, color: t.textSub }}>Требует Apple Developer аккаунт</div>
-                      </div>
-                      <span style={{ fontSize:11, color: t.textMuted, fontFamily:'var(--font-mono)', background: t.surface, padding:'3px 8px', borderRadius:6 }}>скоро</span>
-                    </div>
-                  </div>
+                  ))}
                 </div>
 
-                {/* Telegram bot */}
-                <div style={{ background: t.card, border:`1px solid ${t.cardBorder}`, borderRadius:16, padding:'16px', marginBottom:12 }}>
-                  <div style={{ fontSize:14, fontWeight:600, color: t.text, marginBottom:6 }}>✈️ Telegram бот</div>
-                  <div style={{ fontSize:12, color: t.textSub, lineHeight:1.5, marginBottom:12 }}>Получай уведомления о дедлайнах прямо в Telegram.</div>
-                  <a href="https://t.me/sannder01_Bot" target="_blank" rel="noopener noreferrer"
-                    style={{ display:'block', textAlign:'center', background: t.surface, border:`1px solid ${t.cardBorder}`, borderRadius:10, padding:'10px', color: t.text, textDecoration:'none', fontSize:13, fontWeight:600 }}>
-                    Открыть @sannder01_Bot
-                  </a>
-                </div>
-
-                {/* Sign out */}
+                {/* ── Выход ── */}
                 <button type="button" onClick={handleSignOut}
-                  style={{ width:'100%', background:'transparent', border:`1px solid ${t.danger}44`, borderRadius:14, padding:'14px', color: t.danger, fontWeight:600, fontSize:14, cursor:'pointer', transition:'all 0.2s' }}>
+                  style={{ width:'100%', background:'transparent',
+                    border:`1px solid ${t.danger}44`, borderRadius:14,
+                    padding:'14px', color: t.danger, fontWeight:600,
+                    fontSize:14, cursor:'pointer' }}>
                   Выйти из аккаунта
                 </button>
 
-                {/* Footer */}
-                <div style={{ textAlign:'center', marginTop:32, paddingBottom:16 }}>
-                  <div style={{ fontSize:11, color: t.textMuted, fontFamily:'var(--font-mono)', letterSpacing:'0.1em' }}>CHRONICLE · by Sander Samarin</div>
-                  <div style={{ fontSize:10, color: `${t.textMuted}88`, marginTop:4 }}>v3.0 · {new Date().getFullYear()}</div>
+                <div style={{ textAlign:'center', marginTop:28, paddingBottom:8 }}>
+                  <div style={{ fontSize:10, color:`${t.textMuted}66`,
+                    fontFamily:'var(--font-mono)', letterSpacing:'0.1em' }}>
+                    CHRONICLE · SANDER SAMARIN · {new Date().getFullYear()}
+                  </div>
                 </div>
               </div>
             </div>
@@ -826,6 +932,11 @@ export default function PlannerClient() {
             {/* ── СТРАНИЦА 6: ЗАМЕТКИ ── */}
             <div className="pc-page">
               <NotesPage t={t} />
+            </div>
+
+            {/* ── СТРАНИЦА 7: ДОСТИЖЕНИЯ ── */}
+            <div className="pc-page">
+              <AchievementsPage t={t} />
             </div>
 
           </div>
@@ -843,29 +954,6 @@ export default function PlannerClient() {
           ))}
         </nav>
       </div>
-
-      {/* ── GCAL MODAL ── */}
-      {showGcalSync && (
-        <div className="pc-overlay" style={{ zIndex: 900 }} onClick={() => setShowGcalSync(false)}>
-          <div className="pc-modal" onClick={e => e.stopPropagation()} style={{ background:'#111', borderColor: t.cardBorder }}>
-            <div className="pc-modal-title" style={{ color: t.text }}>📅 Google Календарь</div>
-            <div className="pc-modal-sub" style={{ color: t.textSub }}>
-              Для подключения нужно добавить переменные окружения:<br />
-              <code style={{ fontFamily:'var(--font-mono)', fontSize:11, color:'#88ff88', display:'block', marginTop:10, textAlign:'left', lineHeight:1.8 }}>
-                GOOGLE_CALENDAR_CLIENT_ID=...<br />
-                GOOGLE_CALENDAR_CLIENT_SECRET=...<br />
-                GOOGLE_CALENDAR_REDIRECT_URI=...
-              </code>
-            </div>
-            <div style={{ fontSize:12, color: t.textSub, textAlign:'left', lineHeight:1.6, padding:'0 4px', marginBottom:8 }}>
-              После добавления переменных в .env.local и деплоя — синхронизация включится автоматически. Задачи с датой будут попадать в Google Календарь.
-            </div>
-            <div className="pc-modal-actions">
-              <button type="button" className="pc-btn-ghost" style={{ color: t.textSub, borderColor: t.cardBorder }} onClick={() => setShowGcalSync(false)}>Закрыть</button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Global footer watermark */}
       <div style={{ position:'fixed', bottom:72, right:12, fontSize:9, color:'rgba(255,255,255,0.08)', fontFamily:'var(--font-mono)', letterSpacing:'0.1em', pointerEvents:'none', zIndex:3, userSelect:'none' }}>
