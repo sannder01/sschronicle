@@ -141,58 +141,33 @@ export default function NotesPage({ t }) {
   // =========================
   // CREATE FOLDER
   // =========================
-
   const createFolder = async () => {
     if (!newFolderName.trim()) return
-
-    const folder = {
-      id: Date.now().toString(),
-      name: newFolderName.trim(),
-      icon: '📁',
-    }
-
+  
     try {
-      await fetch('/api/folders', {
+      const res = await fetch('/api/folders', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(folder),
+        body: JSON.stringify({
+          name: newFolderName.trim(),
+          emoji: '📁',
+          color: '#8B5CF6',
+        }),
       })
-
-      setFolders([...folders, folder])
-
+  
+      const createdFolder = await res.json()
+  
+      setFolders([...folders, createdFolder])
+  
       setNewFolderName('')
       setShowFolderModal(false)
     } catch (err) {
       console.error(err)
     }
   }
-
-  const folderNotes = activeFolder
-    ? notes.filter((n) => n.folderId === activeFolder.id)
-    : []
-
-  const formatNoteDate = (iso) => {
-    const d = new Date(iso)
-    const now = new Date()
-    const diff = now - d
-
-    if (diff < 60000) return 'Только что'
-    if (diff < 3600000)
-      return `${Math.floor(diff / 60000)} мин`
-
-    if (diff < 86400000)
-      return d.toLocaleTimeString('ru-RU', {
-        hour: '2-digit',
-        minute: '2-digit',
-      })
-
-    return d.toLocaleDateString('ru-RU', {
-      day: 'numeric',
-      month: 'short',
-    })
-  }
+ 
 
   // =========================
   // LOADING
