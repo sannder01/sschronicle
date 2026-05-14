@@ -453,6 +453,7 @@ export default function PlannerClient() {
                 ))}
               </div>
               <div className="pc-modal-actions">
+                <button type="button" className="pc-btn-danger" style={{ background: 'rgba(255,60,60,0.15)', color: '#ff4466', border: '1px solid rgba(255,60,60,0.3)' }} onClick={() => { deleteFolder(editingFolder.id); setEditingFolder(null) }}>🗑 Удалить</button>
                 <button type="button" className="pc-btn-ghost" style={{ color: t.textSub, borderColor: t.cardBorder }} onClick={() => setEditingFolder(null)}>Отмена</button>
                 <button type="submit" className="pc-btn-primary" style={{ background: editFolderForm.color || '#fff', color: '#000' }}>Сохранить</button>
               </div>
