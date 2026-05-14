@@ -103,7 +103,7 @@ export default function NotesPage({ t }) {
            'Content-Type': 'application/json',
          },
          body: JSON.stringify({
-           folder_id: activeFolder.id,
+           folderId: activeFolder.id,
            title: '',
            content: '',
          }),
@@ -131,6 +131,53 @@ export default function NotesPage({ t }) {
        console.error('[NotesPage] createNote:', err)
      }
    }
+
+  // ─── Save / Edit / Delete Notes ─────────────────────
+  const saveNote = async (id, title, content) => {
+    if (!id) return
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/notes/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, content }),
+      })
+      if (res.ok) {
+        const updated = await res.json()
+        setNotes(prev => prev.map(n => n.id === id ? updated : n))
+      }
+    } catch (err) {
+      console.error('[NotesPage] saveNote:', err)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleTitleChange = (val) => {
+    setNoteTitle(val)
+    clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = setTimeout(() => saveNote(activeNote?.id, val, noteContent), 800)
+  }
+
+  const handleContentChange = (val) => {
+    setNoteContent(val)
+    clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = setTimeout(() => saveNote(activeNote?.id, noteTitle, val), 800)
+  }
+
+  const deleteNote = async (id) => {
+    if (!id) return
+    try {
+      await fetch(`/api/notes/${id}`, { method: 'DELETE' })
+      setNotes(prev => prev.filter(n => n.id !== id))
+      setActiveNote(null)
+      setNoteTitle('')
+      setNoteContent('')
+      setView('notesList')
+    } catch (err) {
+      console.error('[NotesPage] deleteNote:', err)
+    }
+  }
 
   // ─── Helpers ────────────────────────────────────────
   const formatDate = (iso) => {
