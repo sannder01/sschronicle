@@ -53,33 +53,7 @@ export default function NotesPage({ t }) {
       setLoading(false)
     }
   }
-  // create notes 
-  const createNote = async () => {
-     if (!activeFolder) return
-     try {
-       const res = await fetch('/api/notes', {
-         method: 'POST',
-         headers: { 'Content-Type': 'application/json' },
-         body: JSON.stringify({ 
-           folderId: activeFolder.id, 
-           title: '', 
-           content: '' 
-         }),
-       })
-       
-       if (!res.ok) return
-       
-       const newNote = await res.json()
-       setNotes(prev => [newNote, ...prev])
-       setActiveNote(newNote)
-       setNoteTitle('')
-       setNoteContent('')
-       setView('editor') // Переходим сразу в редактор
-     } catch (err) {
-       console.error('Ошибка при создании заметки:', err)
-     }
-   }
-
+ 
   // ─── Folders Logic ──────────────────────────────────
   const createFolder = async () => {
     if (!newFolderName.trim()) return
