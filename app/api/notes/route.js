@@ -29,7 +29,7 @@ export async function POST(req) {
       `INSERT INTO notes (user_id, folder_id, title, content)
        VALUES ($1, $2, $3, $4)
        RETURNING *`,
-      [session.user.id, folderId, title || '', content || '']
+      [session.user.id, folderId || null, title || '', content || '']
     )
     return Response.json(result.rows[0], { status: 201 })
   } catch (err) {
