@@ -22,6 +22,7 @@ export default function NotesPage({ t }) {
   const [noteContent, setNoteContent] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [deletingFolder, setDeletingFolder] = useState(null)
 
   // Folder modal state
   const [showFolderModal, setShowFolderModal] = useState(false)
@@ -78,6 +79,16 @@ export default function NotesPage({ t }) {
       console.error('[NotesPage] createFolder:', err)
     }
   }
+  // Add deleteFolder function:
+   const deleteFolder = async (id) => {
+     try {
+       await fetch(`/api/folders/${id}`, { method: 'DELETE' })
+       setFolders(prev => prev.filter(f => f.id !== id))
+       setDeletingFolder(null)
+     } catch (err) {
+       console.error('[NotesPage] deleteFolder:', err)
+     }
+   }
 
   // ─── Create Note ────────────────────────────────────
   const createNote = async () => {
@@ -185,7 +196,7 @@ export default function NotesPage({ t }) {
   // ════════════════════════════════════════
   if (view === 'folders') {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: t.bg }}>
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: t.bg, position: 'relative' }}>
         {/* Header */}
         <div style={{
           padding: '20px 20px 12px',
@@ -527,11 +538,12 @@ function FolderModal({ name, setName, icon, setIcon, color, setColor, onCreate, 
   return (
     <div
       style={{
-        position: 'fixed', inset: 0,
+        position: 'absolute', inset: 0,
         background: 'rgba(0,0,0,0.75)',
         display: 'flex', alignItems: 'flex-end',
-        zIndex: 9999,
+        zIndex: 50,
         backdropFilter: 'blur(8px)',
+        borderRadius: 'inherit',
       }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
