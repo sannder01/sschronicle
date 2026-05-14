@@ -207,16 +207,12 @@ function AuthContent() {
           <div className="chr-eyebrow">— Personal Intelligence System</div>
 
           <h1 className="chr-headline">
-            <span className="chr-headline-line chr-anim-1">Your tasks.</span>
-            <span className="chr-headline-line chr-gradient chr-anim-2">Your ranks.</span>
-            <span className="chr-headline-line chr-headline-faded chr-anim-3">Your chronicle.</span>
+            <span className="chr-headline-line chr-anim-1">Your tasks</span>
+            <span className="chr-headline-line chr-gradient chr-anim-2">Your ranks</span>
+            <span className="chr-headline-line chr-headline-faded chr-anim-3">Your chronicle</span>
           </h1>
 
-          <p className="chr-subline chr-anim-4">
-            A task system engineered for focus.<br />
-            Powered by XP. Driven by discipline.
-          </p>
-
+         
           {/* Auth card */}
           <div className="chr-card chr-anim-5">
             <div className="chr-card-header">
