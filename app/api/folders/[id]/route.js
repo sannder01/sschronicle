@@ -26,15 +26,10 @@ export async function DELETE(req, { params }) {
   if (!session?.user?.id) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
-    // Remove folder_id from tasks in that folder
-    await query(
-      'UPDATE tasks SET folder_id = NULL WHERE folder_id = $1 AND user_id = $2',
-      [params.id, session.user.id]
-    )
-    await query(
-      'DELETE FROM folders WHERE id = $1 AND user_id = $2',
-      [params.id, session.user.id]
-    )
+    // Unlink both tasks AND notes that belong to this folder
+    await query('UPDATE tasks SET folder_id = NULL WHERE folder_id = $1 AND user_id = $2', [params.id, session.user.id])
+    await query('UPDATE notes SET folder_id = NULL WHERE folder_id = $1 AND user_id = $2', [params.id, session.user.id])  // ← ADD
+    await query('DELETE FROM folders WHERE id = $1 AND user_id = $2', [params.id, session.user.id])
     return Response.json({ success: true })
   } catch (err) {
     console.error('[DELETE /api/folders/:id]', err)
