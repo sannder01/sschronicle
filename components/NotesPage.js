@@ -38,7 +38,7 @@ export default function NotesPage({ t }) {
   const loadData = async () => {
     try {
       const [fRes, nRes] = await Promise.all([
-        fetch('/api/folders'),
+        fetch('/api/folders?type=note'),
         fetch('/api/notes'),
       ])
       const [fData, nData] = await Promise.all([fRes.json(), nRes.json()])
