@@ -185,7 +185,7 @@ function MiniCalendar({ habitId, doneToday, color, scheduledDays }) {
 
 // ── HabitCard ─────────────────────────────────────────────────────────────────
 
-function HabitCard({ habit, t, onToggle, onDelete, expanded, onExpand }) {
+function HabitCard({ habit, t, onToggle, onDelete, expanded, onExpand, onMoveUp, onMoveDown, isFirst, isLast }) {
   const done  = habit.done_today
   const streak = habit.streak || 0
   const color  = habit.color || '#8B5CF6'
@@ -244,6 +244,22 @@ function HabitCard({ habit, t, onToggle, onDelete, expanded, onExpand }) {
               </span>
             )}
           </div>
+        </div>
+
+        {/* Move up / down */}
+        <div style={{ display:'flex', flexDirection:'column', gap:1 }}>
+          <button onClick={onMoveUp} disabled={isFirst} title="Вверх" style={{
+            background:'none', border:'none', cursor: isFirst ? 'default' : 'pointer',
+            color: isFirst ? 'transparent' : t.textMuted,
+            fontSize:10, padding:'2px 5px', lineHeight:1, borderRadius:4,
+            transition:'color 0.15s',
+          }}>▲</button>
+          <button onClick={onMoveDown} disabled={isLast} title="Вниз" style={{
+            background:'none', border:'none', cursor: isLast ? 'default' : 'pointer',
+            color: isLast ? 'transparent' : t.textMuted,
+            fontSize:10, padding:'2px 5px', lineHeight:1, borderRadius:4,
+            transition:'color 0.15s',
+          }}>▼</button>
         </div>
 
         {/* Expand / delete */}
@@ -474,6 +490,24 @@ export default function HabitTracker({ t, onClose, onHabitComplete }) {
     } catch {}
   }
 
+  async function moveHabit(index, direction) {
+    const next = [...habits]
+    const target = index + direction
+    if (target < 0 || target >= next.length) return
+    ;[next[index], next[target]] = [next[target], next[index]]
+    setHabits(next) // оптимистичное обновление
+    try {
+      const res = await fetch('/api/habits/order', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: next.map(h => h.id) }),
+      })
+      if (!res.ok) setHabits(habits) // откат при ошибке
+    } catch {
+      setHabits(habits) // откат при сетевой ошибке
+    }
+  }
+
   async function deleteHabit(id) {
     try {
       await fetch(`/api/habits/${id}`, { method:'DELETE' })
@@ -607,12 +641,16 @@ export default function HabitTracker({ t, onClose, onHabitComplete }) {
             </button>
           </div>
         ) : (
-          habits.map(habit => (
+          habits.map((habit, index) => (
             <HabitCard key={habit.id} habit={habit} t={t}
               onToggle={() => toggleHabit(habit)}
               onDelete={() => setDeleteConfirm(habit)}
               expanded={expanded === habit.id}
               onExpand={() => setExpanded(expanded===habit.id ? null : habit.id)}
+              onMoveUp={() => moveHabit(index, -1)}
+              onMoveDown={() => moveHabit(index, 1)}
+              isFirst={index === 0}
+              isLast={index === habits.length - 1}
             />
           ))
         )}
