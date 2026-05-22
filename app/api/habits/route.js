@@ -22,6 +22,11 @@ async function ensureTables() {
     ALTER TABLE habits ADD COLUMN IF NOT EXISTS days JSONB
   `).catch(() => {})
 
+  // Add 'sort_order' column for manual reordering
+  await query(`
+    ALTER TABLE habits ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0
+  `).catch(() => {})
+
   await query(`
     CREATE TABLE IF NOT EXISTS habit_logs (
       id         SERIAL PRIMARY KEY,
@@ -78,7 +83,7 @@ export async function GET() {
       COALESCE((SELECT COUNT(*) FROM habit_logs hl WHERE hl.habit_id = h.id), 0) AS total_logs
     FROM habits h
     WHERE h.user_id = $1
-    ORDER BY h.created_at ASC
+    ORDER BY h.sort_order ASC, h.created_at ASC
   `, [session.user.id])
 
   const habits = await Promise.all(result.rows.map(async h => ({
