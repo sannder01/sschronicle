@@ -12,6 +12,7 @@ import CharacterPanel from './CharacterPanel'
 import HabitTracker from './HabitTracker'
 import NotesPage from './NotesPage'
 import AchievementsPage from './AchievementsPage'
+import WeightLossPage from './WeightLossPage'
 
 // ═══════════════════════════════════════════════════════════════════
 //  THEME — clean monochrome, task priority colors preserved
@@ -104,6 +105,7 @@ const PAGES = [
   { id: 4, label: 'Профиль',     icon: '👤' },
   { id: 5, label: 'Заметки',     icon: '📝' },
   { id: 6, label: 'Достижения',  icon: '🏆' },
+  { id: 7, label: 'Похудение',   icon: '🎯' },
 ]
 
 // ═══════════════════════════════════════════════════════════════════
@@ -495,7 +497,7 @@ export default function PlannerClient() {
 
         {/* ── PAGES ── */}
         <div className="pc-pages-outer">
-          <div className="pc-pages-inner" style={{ transform: `translateX(-${activePage * (100/7)}%)` }}>
+          <div className="pc-pages-inner" style={{ transform: `translateX(-${activePage * (100/8)}%)` }}>
 
             {/* ══ PAGE 0: TASKS ══════════════════════════════════════════ */}
             <div className="pc-page">
@@ -938,6 +940,11 @@ export default function PlannerClient() {
             {/* ── СТРАНИЦА 7: ДОСТИЖЕНИЯ ── */}
             <div className="pc-page">
               <AchievementsPage t={t} />
+            </div>
+
+            {/* ── СТРАНИЦА 8: ПОХУДЕНИЕ ── */}
+            <div className="pc-page">
+              <WeightLossPage t={t} session={session} />
             </div>
 
           </div>
