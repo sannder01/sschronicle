@@ -166,8 +166,8 @@ html,body{
 /* ── Page system ── */
 /* NOTE: width:500% + 20% per page assumes 5 pages. Adjust if count changes. */
 .pc-pages-outer{flex:1;overflow:hidden;min-height:0;}
-.pc-pages-inner{display:flex;width:700%;height:100%;}
-.pc-page{width:14.2857%;height:100%;display:flex;flex-direction:column;overflow:hidden;min-height:0;}
+.pc-pages-inner{display:flex;width:800%;height:100%;}
+.pc-page{width:12.5%;height:100%;display:flex;flex-direction:column;overflow:hidden;min-height:0;}
 
 /* ── Header — frosted glass shelf ── */
 .pc-header{
