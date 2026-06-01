@@ -124,6 +124,8 @@ export default function PlannerClient() {
 
   const [activePage, setActivePage] = useState(0)
   const [activeFolder, setActiveFolder] = useState('all')
+  const [lang, setLang] = useState(() => { if (typeof window !== 'undefined') return localStorage.getItem('chronicle-lang') || 'ru'; return 'ru'; })
+  function toggleLang() { const next = lang === 'ru' ? 'en' : 'ru'; setLang(next); if (typeof window !== 'undefined') localStorage.setItem('chronicle-lang', next); }
 
   const [showForm, setShowForm] = useState(false)
   const [formData, setFormData] = useState({ title: '', due_date: '', due_time: '', priority: 'medium', folder_id: '' })
@@ -944,7 +946,7 @@ export default function PlannerClient() {
 
             {/* ── СТРАНИЦА 8: ПОХУДЕНИЕ ── */}
             <div className="pc-page">
-              <WeightLossPage t={t} session={session} />
+              <div style={{ flex:1, overflowY:"auto", WebkitOverflowScrolling:"touch", scrollbarWidth:"none" }}><WeightLossPage lang={lang} session={session} /></div>
             </div>
 
           </div>
@@ -967,6 +969,24 @@ export default function PlannerClient() {
       <div style={{ position:'fixed', bottom:72, right:12, fontSize:9, color:'rgba(255,255,255,0.08)', fontFamily:'var(--font-mono)', letterSpacing:'0.1em', pointerEvents:'none', zIndex:3, userSelect:'none' }}>
         CHRONICLE · SANDER SAMARIN
       </div>
+
+      {/* Global lang toggle — fixed top-right, visible on all pages */}
+      <button
+        type="button"
+        onClick={toggleLang}
+        style={{
+          position:'fixed', top:14, right:14, zIndex:20,
+          background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)',
+          borderRadius:10, padding:'5px 11px',
+          color:'rgba(255,255,255,0.6)', fontSize:10, fontWeight:700,
+          fontFamily:'var(--font-mono)', letterSpacing:'0.08em',
+          cursor:'pointer', transition:'background 0.2s',
+        }}
+        onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.12)'}
+        onMouseLeave={e => e.currentTarget.style.background='rgba(255,255,255,0.06)'}
+      >
+        {lang === 'ru' ? 'EN' : 'RU'}
+      </button>
     </>
   )
 }
