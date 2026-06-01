@@ -20,15 +20,13 @@ export async function POST(req) {
       ? `You are a nutrition expert. For the food item "${query.trim()}", return ONLY a JSON object (no markdown, no explanation) with these fields: name (string), calories (number, kcal per 100g or per serving if specified), protein (number, grams), fat (number, grams), carbs (number, grams). Example: {"name":"Boiled egg","calories":78,"protein":6.3,"fat":5.0,"carbs":0.6}`
       : `Ты эксперт по питанию. Для блюда или продукта "${query.trim()}" верни ТОЛЬКО JSON объект (без markdown, без пояснений) с полями: name (строка, название на русском), calories (число, ккал на 100г или на порцию если указано), protein (число, граммы), fat (число, граммы), carbs (число, граммы). Пример: {"name":"Варёное яйцо","calories":78,"protein":6.3,"fat":5.0,"carbs":0.6}`
 
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
+   const res = await fetch('https://api.x.ai/v1/chat/completions', {
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
+        'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001', // fast + cheap for simple lookups
+        model: 'grok-3-mini',
         max_tokens: 300,
         messages: [{ role: 'user', content: prompt }],
       }),
