@@ -11,7 +11,7 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Missing query' }, { status: 400 })
     }
 
-    const apiKey = process.env.ANTHROPIC_API_KEY
+    const apiKey = process.env.XAI_API_KEY
     if (!apiKey) {
       return NextResponse.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 500 })
     }
@@ -39,7 +39,7 @@ export async function POST(req) {
     }
 
     const data = await res.json()
-    const text = data.content?.map(b => b.text || '').join('') || ''
+    const text = data.choices?.[0]?.message?.content || ''
     const clean = text.replace(/```json|```/g, '').trim()
 
     let parsed
