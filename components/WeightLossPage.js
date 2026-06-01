@@ -408,8 +408,14 @@ function Skeleton({ height = 80, radius = 20, style = {} }) {
 // ╔══════════════════════════════════════════════════════════════════╗
 // ║  MAIN COMPONENT                                                  ║
 // ╚══════════════════════════════════════════════════════════════════╝
-export default function WeightLossPage({ lang = 'ru', tr = {}, session }) {
+export default function WeightLossPage({ lang: langProp = 'ru', tr = {}, session }) {
   // ── State ────────────────────────────────────────────────────────
+  const [lang, setLang]                 = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('wlp-lang') || langProp
+    }
+    return langProp
+  })
   const [meals, setMeals]               = useState([])
   const [workouts, setWorkouts]         = useState([])
   const [weight, setWeight]             = useState(null)
@@ -696,6 +702,12 @@ export default function WeightLossPage({ lang = 'ru', tr = {}, session }) {
     try { await fetch(`/api/fitness/${id}`, { method: 'DELETE' }) } catch {}
   }
 
+  function toggleLang() {
+    const next = lang === 'ru' ? 'en' : 'ru'
+    setLang(next)
+    if (typeof window !== 'undefined') localStorage.setItem('wlp-lang', next)
+  }
+
   // ═══════════════════════════════════════════════════════════════════
   //  RENDER
   // ═══════════════════════════════════════════════════════════════════
@@ -740,6 +752,17 @@ export default function WeightLossPage({ lang = 'ru', tr = {}, session }) {
                 <span style={{ fontSize: 12, fontWeight: 700, color: '#ffffff' }}>{streak}{lang === 'en' ? 'd' : 'д'}</span>
               </div>
             )}
+            <button type="button"
+              onClick={toggleLang}
+              style={{
+                background: 'rgba(255,255,255,0.06)', border: `1px solid ${bdr}`,
+                borderRadius: 12, height: 36, padding: '0 12px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                fontFamily: 'var(--font-mono)', letterSpacing: '0.05em',
+              }}>
+              {lang === 'ru' ? 'EN' : 'RU'}
+            </button>
             <button type="button"
               onClick={() => setShowSettings(true)}
               style={{
