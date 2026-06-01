@@ -11,7 +11,7 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Missing query' }, { status: 400 })
     }
 
-    const apiKey = process.env.XAI_API_KEY
+    const apiKey = process.env.GROQ_API_KEY
     if (!apiKey) {
       return NextResponse.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 500 })
     }
@@ -20,13 +20,13 @@ export async function POST(req) {
       ? `You are a nutrition expert. For the food item "${query.trim()}", return ONLY a JSON object (no markdown, no explanation) with these fields: name (string), calories (number, kcal per 100g or per serving if specified), protein (number, grams), fat (number, grams), carbs (number, grams). Example: {"name":"Boiled egg","calories":78,"protein":6.3,"fat":5.0,"carbs":0.6}`
       : `Ты эксперт по питанию. Для блюда или продукта "${query.trim()}" верни ТОЛЬКО JSON объект (без markdown, без пояснений) с полями: name (строка, название на русском), calories (число, ккал на 100г или на порцию если указано), protein (число, граммы), fat (число, граммы), carbs (число, граммы). Пример: {"name":"Варёное яйцо","calories":78,"protein":6.3,"fat":5.0,"carbs":0.6}`
 
-   const res = await fetch('https://api.x.ai/v1/chat/completions', {
+   const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'grok-3-mini',
+        model: 'llama-3.1-8b-instant',
         max_tokens: 300,
         messages: [{ role: 'user', content: prompt }],
       }),
