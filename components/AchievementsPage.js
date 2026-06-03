@@ -136,13 +136,15 @@ const ACHIEVEMENTS = [
   },
 ]
 
-const CATEGORY_LABELS = {
-  start:   { label: 'Начало',        icon: '🌱' },
-  streak:  { label: 'Серии',         icon: '🔥' },
-  count:   { label: lang === 'en' ? 'Executions' : 'Выполнения',    icon: '💪' },
-  variety: { label: 'Разнообразие',  icon: '🌿' },
-  perfect: { label: 'Перфекционизм', icon: '⭐' },
-  secret:  { label: 'Секретные',     icon: '🔒' },
+function getCategoryLabels(lang) {
+  return {
+    start:   { label: lang === 'en' ? 'Beginning'     : 'Начало',        icon: '🌱' },
+    streak:  { label: lang === 'en' ? 'Streaks'       : 'Серии',         icon: '🔥' },
+    count:   { label: lang === 'en' ? 'Executions'    : 'Выполнения',    icon: '💪' },
+    variety: { label: lang === 'en' ? 'Variety'       : 'Разнообразие',  icon: '🌿' },
+    perfect: { label: lang === 'en' ? 'Perfectionism' : 'Перфекционизм', icon: '⭐' },
+    secret:  { label: lang === 'en' ? 'Secret'        : 'Секретные',     icon: '🔒' },
+  }
 }
 
 const CATEGORY_ORDER = ['start', 'streak', 'count', 'variety', 'perfect', 'secret']
@@ -179,6 +181,8 @@ export default function AchievementsPage({ t, lang = 'ru', i18n = {} }) {
   const filtered = ACHIEVEMENTS.filter(a =>
     selectedCategory === 'all' || a.category === selectedCategory
   )
+
+  const CATEGORY_LABELS = getCategoryLabels(lang)
 
   const categories = [
     { id: 'all', label: i18n.common?.all || 'Все', icon: '◈' },
