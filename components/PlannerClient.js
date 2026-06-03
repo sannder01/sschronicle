@@ -1,6 +1,6 @@
 'use client'
 // ╔═══════════════════════════════════════════════════════════════════╗
-// ║  CHRONICLE — PLANNER CLIENT  v3.0  (MULTI-PAGE REDESIGN)         ║
+// ║  CHRONICLE — PLANNER CLIENT  v3.0  (MULTI-PAGE REDESIGN) sannder  ║
 // ║  5 pages: Tasks · Habits · Ranks · Calendar+Analytics · Profile  ║
 // ║  Swipe navigation · Clean monochrome theme · Folder renaming     ║
 // ╚═══════════════════════════════════════════════════════════════════╝
