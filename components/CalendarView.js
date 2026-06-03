@@ -32,7 +32,7 @@ function daysInMonth(year, month) {
   return new Date(year, month + 1, 0).getDate()
 }
 
-export default function CalendarView({ tasks = [], theme = {}, onClose, inline = false }) {
+export default function CalendarView({ tasks = [], theme = {}, lang = 'ru', i18n = {}, onClose, inline = false }) {
   const WEEKDAYS = i18n.calendar?.days || WEEKDAYS_DEFAULT
   const MONTHS = i18n.calendar?.months || MONTHS_DEFAULT
   const t = theme
