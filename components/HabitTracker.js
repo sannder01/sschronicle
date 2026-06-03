@@ -16,6 +16,9 @@ const PALETTE = [
 // Days: 0=Пн … 6=Вс  (ISO weekday - 1)
 const DAY_LABELS_DEFAULT  = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
 const DAY_LABELS_FULL_DEFAULT = ['Понедельник','Вторник','Среда','Четверг','Пятница','Суббота','Воскресенье']
+// Module-level aliases — компоненты вне HabitTracker используют эти напрямую
+let DAY_LABELS      = DAY_LABELS_DEFAULT
+let DAY_LABELS_FULL = DAY_LABELS_FULL_DEFAULT
 const WORKDAYS = [0,1,2,3,4]
 const WEEKEND  = [5,6]
 const ALL_DAYS = [0,1,2,3,4,5,6]
@@ -461,8 +464,9 @@ function CreateHabitForm({ t, i18n = {}, onClose, onCreate }) {
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export default function HabitTracker({ t, lang = 'ru', i18n = {}, onClose, onHabitComplete }) {
-  const DAY_LABELS = i18n.habits?.days || DAY_LABELS_DEFAULT
-  const DAY_LABELS_FULL = i18n.habits?.daysLong || DAY_LABELS_FULL_DEFAULT
+  // Обновляем модульные переменные чтобы scheduleLabel/DayPicker/MiniCalendar видели актуальные метки
+  DAY_LABELS      = i18n.habits?.days     || DAY_LABELS_DEFAULT
+  DAY_LABELS_FULL = i18n.habits?.daysLong || DAY_LABELS_FULL_DEFAULT
   const [habits,        setHabits]        = useState([])
   const [loading,       setLoading]       = useState(true)
   const [showForm,      setShowForm]      = useState(false)
