@@ -863,15 +863,15 @@ export default function WeightLossPage({ lang = 'ru', tr = {}, session }) {
                   <div style={{ fontSize: 13, fontWeight: 700, color: txt, marginBottom: 16 }}>
                     {lang === 'en' ? 'Activity Rings' : 'Кольца активности'}
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', gap: 8 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', gap: 4, overflow: 'hidden' }}>
                     <ActivityRing value={totalCal} max={calorieGoal} color="rgba(255,255,255,0.8)"
-                      label={lang === 'en' ? 'Calories' : 'Калории'} unit="ккал" />
-                    <ActivityRing value={Math.round(totalP)} max={proteinGoal} color="rgba(255,255,255,0.8)"
-                      label={lang === 'en' ? 'Protein' : 'Белок'} unit="г" />
-                    <ActivityRing value={waterMl} max={2500} color="rgba(255,255,255,0.8)"
-                      label={lang === 'en' ? 'Water' : 'Вода'} unit="мл" />
-                    <ActivityRing value={totalWorkoutMin} max={60} color="rgba(255,255,255,0.8)"
-                      label={lang === 'en' ? 'Active' : 'Актив.'} unit="мин" />
+  label={lang === 'en' ? 'Calories' : 'Калории'} unit="ккал" size={70} strokeWidth={8} />
+<ActivityRing value={Math.round(totalP)} max={proteinGoal} color="rgba(255,255,255,0.8)"
+  label={lang === 'en' ? 'Protein' : 'Белок'} unit="г" size={70} strokeWidth={8} />
+<ActivityRing value={waterMl} max={2500} color="rgba(255,255,255,0.8)"
+  label={lang === 'en' ? 'Water' : 'Вода'} unit="мл" size={70} strokeWidth={8} />
+<ActivityRing value={totalWorkoutMin} max={60} color="rgba(255,255,255,0.8)"
+  label={lang === 'en' ? 'Active' : 'Актив.'} unit="мин" size={70} strokeWidth={8} />
                   </div>
                   <div style={{
                     marginTop: 14, paddingTop: 14, borderTop: `1px solid ${bdr}`,
