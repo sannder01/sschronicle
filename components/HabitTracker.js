@@ -66,7 +66,7 @@ function scheduleLabel(habit, lang = 'ru') {
 
 // ── DayPicker ─────────────────────────────────────────────────────────────────
 
-function DayPicker({ selected, onChange, color, t }) {
+function DayPicker({ selected, onChange, color, t, i18n = {} }) {
   function toggle(i) {
     if (selected.includes(i)) {
       if (selected.length === 1) return   // нельзя убрать все
@@ -185,7 +185,7 @@ function MiniCalendar({ habitId, doneToday, color, scheduledDays }) {
 
 // ── HabitCard ─────────────────────────────────────────────────────────────────
 
-function HabitCard({ habit, t, onToggle, onDelete, expanded, onExpand, onMoveUp, onMoveDown, isFirst, isLast }) {
+function HabitCard({ habit, t, i18n = {}, onToggle, onDelete, expanded, onExpand, onMoveUp, onMoveDown, isFirst, isLast }) {
   const done  = habit.done_today
   const streak = habit.streak || 0
   const color  = habit.color || '#8B5CF6'
@@ -292,7 +292,7 @@ function HabitCard({ habit, t, onToggle, onDelete, expanded, onExpand, onMoveUp,
 
 // ── CreateHabitForm ───────────────────────────────────────────────────────────
 
-function CreateHabitForm({ t, onClose, onCreate }) {
+function CreateHabitForm({ t, i18n = {}, onClose, onCreate }) {
   const [form, setForm] = useState({
     name: '', description: '',
     frequency: 'daily',
@@ -404,6 +404,7 @@ function CreateHabitForm({ t, onClose, onCreate }) {
               onChange={days => setForm({...form, days})}
               color={form.color}
               t={t}
+              i18n={i18n}
             />
           )}
         </div>
@@ -459,7 +460,7 @@ function CreateHabitForm({ t, onClose, onCreate }) {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
-export default function HabitTracker({ t, lang = 'ru', onClose, onHabitComplete }) {
+export default function HabitTracker({ t, lang = 'ru', i18n = {}, onClose, onHabitComplete }) {
   const DAY_LABELS = i18n.habits?.days || DAY_LABELS_DEFAULT
   const DAY_LABELS_FULL = i18n.habits?.daysLong || DAY_LABELS_FULL_DEFAULT
   const [habits,        setHabits]        = useState([])
@@ -593,6 +594,7 @@ export default function HabitTracker({ t, lang = 'ru', onClose, onHabitComplete 
         {showForm && (
           <CreateHabitForm
             t={t}
+            i18n={i18n}
             onClose={() => setShowForm(false)}
             onCreate={habit => setHabits(prev => [...prev, habit])}
           />
@@ -644,7 +646,7 @@ export default function HabitTracker({ t, lang = 'ru', onClose, onHabitComplete 
           </div>
         ) : (
           habits.map((habit, index) => (
-            <HabitCard key={habit.id} habit={habit} t={t}
+            <HabitCard key={habit.id} habit={habit} t={t} i18n={i18n}
               onToggle={() => toggleHabit(habit)}
               onDelete={() => setDeleteConfirm(habit)}
               expanded={expanded === habit.id}
