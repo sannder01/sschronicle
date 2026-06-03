@@ -185,7 +185,7 @@ function MiniCalendar({ habitId, doneToday, color, scheduledDays }) {
 
 // ── HabitCard ─────────────────────────────────────────────────────────────────
 
-function HabitCard({ habit, t, i18n = {}, onToggle, onDelete, expanded, onExpand, onMoveUp, onMoveDown, isFirst, isLast }) {
+function HabitCard({ habit, t, i18n = {}, lang = 'ru', onToggle, onDelete, expanded, onExpand, onMoveUp, onMoveDown, isFirst, isLast }) {
   const done  = habit.done_today
   const streak = habit.streak || 0
   const color  = habit.color || '#8B5CF6'
@@ -646,7 +646,7 @@ export default function HabitTracker({ t, lang = 'ru', i18n = {}, onClose, onHab
           </div>
         ) : (
           habits.map((habit, index) => (
-            <HabitCard key={habit.id} habit={habit} t={t} i18n={i18n}
+            <HabitCard key={habit.id} habit={habit} t={t} i18n={i18n} lang={lang}
               onToggle={() => toggleHabit(habit)}
               onDelete={() => setDeleteConfirm(habit)}
               expanded={expanded === habit.id}
