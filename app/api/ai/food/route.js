@@ -1,6 +1,6 @@
 // app/api/ai/food/route.js
 // Server-side proxy for Anthropic AI food calorie lookup
-// Keeps API key secure, handles CORS
+// Keeps API key secure, handles COR
 
 import { NextResponse } from 'next/server'
 
