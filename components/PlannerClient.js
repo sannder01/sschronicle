@@ -693,7 +693,7 @@ export default function PlannerClient() {
                 </div>
               </header>
               <div style={{ flex:1, overflowY:'auto' }}>
-                <CalendarView tasks={tasks} theme={t} onClose={null} inline={true} />
+                <CalendarView tasks={tasks} theme={t} lang={lang} i18n={i18n} onClose={null} inline={true} />
 
                 {/* Analytics section */}
                 <div style={{ padding:'0 16px 100px' }}>
