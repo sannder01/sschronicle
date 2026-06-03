@@ -233,7 +233,7 @@ function CharacterSVG({ rankIndex, color, glow }) {
 }
 
 // ── Main export
-export default function CharacterPanel({ xp = 0, completedCount = 0, theme = {}, compact = false }) {
+export default function CharacterPanel({ xp = 0, completedCount = 0, theme = {}, lang = 'ru', compact = false }) {
   const t        = theme
   const rankInfo = getRank(xp)
   const rankIdx  = RANKS.findIndex(r => r.rank === rankInfo.rank)
