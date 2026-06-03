@@ -232,16 +232,16 @@ export default function FitnessTracker({ t }) {
 
   // ─────────────────────────────────────────────────────────────
   return (
-    <div style={{ padding: '0 0 40px', maxWidth: 600, margin: '0 auto' }}>
+    <div style={{ padding: '0 0 40px', maxWidth: 600, margin: '0 auto', width: '100%', boxSizing: 'border-box', overflowX: 'hidden' }}>
 
       {/* ── HEADER ─────────────────────────────────────────────── */}
-      <div style={{ padding: '20px 16px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+      <div style={{ padding: '20px 16px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, minWidth: 0 }}>
         <div>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 700, color: text }}>Фитнес</div>
           <div style={{ color: sub, fontSize: 13, marginTop: 2 }}>{isToday ? 'Сегодня' : formatDate(date)}</div>
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
-          <input type="date" value={date} onChange={e => setDate(e.target.value)}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0, minWidth: 0 }}>
+          <input type="date" value={date} onChange={e => setDate(e.target.value), maxWidth: 120}
             style={{ background: bg, border: `1px solid ${bdr}`, borderRadius: 10, padding: '8px 10px', color: text, fontSize: 13, colorScheme: 'dark', outline: 'none', cursor: 'pointer' }}
           />
           <button type="button" onClick={() => { setSettingsForm({ calorie_goal: calorieGoal, target_weight: targetWeight ?? '' }); setShowSettings(true) }}
@@ -305,7 +305,7 @@ export default function FitnessTracker({ t }) {
           </div>
 
           {/* ── WEIGHT & WATER ROW ─────────────────────────── */}
-          <div style={{ display: 'flex', gap: 10, margin: '0 16px 12px' }}>
+          <div style={{ display: 'flex', gap: 10, margin: '0 16px 12px', minWidth: 0 }}>
             {/* Weight — click opens modal */}
             <div role="button" tabIndex={0}
               onClick={() => { setWeightInput(currentW ? String(currentW) : ''); setShowWeightForm(true) }}
