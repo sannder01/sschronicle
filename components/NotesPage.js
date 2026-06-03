@@ -339,6 +339,7 @@ export default function NotesPage({ t, lang = 'ru', i18n = {} }) {
                 note={note}
                 formatDate={formatDate}
                 accentColor={activeFolder?.color}
+                i18n={i18n}
                 onClick={() => {
                   setActiveNote(note)
                   setNoteTitle(note.title || '')
@@ -426,7 +427,7 @@ function FolderRow({ folder, count, onClick, onDelete }) {
   )
 }
 
-function NoteRow({ note, formatDate, accentColor, onClick }) {
+function NoteRow({ note, formatDate, accentColor, i18n = {}, onClick }) {
   const [hovered, setHovered] = useState(false)
   const preview = (note.content || '').replace(/\n/g, ' ').slice(0, 80)
   return (
