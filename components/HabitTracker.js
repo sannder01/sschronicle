@@ -54,7 +54,7 @@ function parseDays(habit) {
   return ALL_DAYS
 }
 
-function scheduleLabel(habit) {
+function scheduleLabel(habit, lang = 'ru') {
   if (habit.frequency === 'daily') return lang === 'en' ? '📅 Every day' : '📅 Ежедневно'
   const days = parseDays(habit)
   if (!days || days.length === 0) return lang === 'en' ? '📅 Every day' : '📅 Ежедневно'
@@ -233,7 +233,7 @@ function HabitCard({ habit, t, onToggle, onDelete, expanded, onExpand, onMoveUp,
           </div>
           <div style={{ display:'flex', gap:8, alignItems:'center', marginTop:3, flexWrap:'wrap' }}>
             <span style={{ fontSize:11, color:t.textSub }}>
-              {scheduleLabel(habit)}
+              {scheduleLabel(habit, lang)}
             </span>
             {streak > 0 && (
               <span style={{
@@ -459,7 +459,7 @@ function CreateHabitForm({ t, onClose, onCreate }) {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
-export default function HabitTracker({ t, onClose, onHabitComplete }) {
+export default function HabitTracker({ t, lang = 'ru', onClose, onHabitComplete }) {
   const DAY_LABELS = i18n.habits?.days || DAY_LABELS_DEFAULT
   const DAY_LABELS_FULL = i18n.habits?.daysLong || DAY_LABELS_FULL_DEFAULT
   const [habits,        setHabits]        = useState([])
