@@ -485,18 +485,26 @@ export default function HabitTracker({ t, lang = 'ru', i18n = {}, onClose, onHab
 
   async function toggleHabit(habit) {
     try {
-      const res = await fetch(`/api/habits/${habit.id}/log`, { method:'POST' })
+      const res = await fetch(`/api/habits/${habit.id}/log`, { method: 'POST' })
       if (!res.ok) return
       const { done } = await res.json()
+  
+      // Обновляем локальный стрик ТОЛЬКО на основе ответа сервера
       setHabits(prev => prev.map(h =>
         h.id === habit.id
-          ? { ...h, done_today:done, streak: done ? (h.streak||0)+1 : Math.max(0,(h.streak||0)-1) }
+          ? { ...h, done_today: done, streak: done ? (h.streak || 0) + 1 : Math.max(0, (h.streak || 0) - 1) }
           : h
       ))
-      if (onHabitComplete) onHabitComplete(done ? 10 : -10)
+  
+      // EXP меняем ТОЛЬКО если реально изменился статус done_today
+      // (т.е. не вызываем -10 при загрузке нового дня)
+      if (onHabitComplete) {
+        if (done && !habit.done_today) onHabitComplete(10)   // отметили ✓
+        else if (!done && habit.done_today) onHabitComplete(-10) // сняли отметку
+      }
     } catch {}
   }
-
+    
   async function moveHabit(index, direction) {
     const next = [...habits]
     const target = index + direction
