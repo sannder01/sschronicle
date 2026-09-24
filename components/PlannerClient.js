@@ -138,6 +138,7 @@ export default function PlannerClient() {
   const [activeFolder, setActiveFolder] = useState('all')
   const [taskSearch, setTaskSearch] = useState('')
   const taskSearchRef = useRef(null)
+  const [animationsEnabled, setAnimationsEnabled] = useState(true)
   const [lang, setLang] = useState(() => { if (typeof window !== 'undefined') return localStorage.getItem('chronicle-lang') || 'ru'; return 'ru'; })
   function toggleLang() { const next = lang === 'ru' ? 'en' : 'ru'; setLang(next); if (typeof window !== 'undefined') localStorage.setItem('chronicle-lang', next); }
   const i18n = useT(lang)
@@ -198,6 +199,23 @@ export default function PlannerClient() {
 
   useEffect(() => { loadData() }, [loadData])
 
+  useEffect(() => {
+    try {
+      const savedPreference = localStorage.getItem('chronicle-animations')
+      if (savedPreference !== null) setAnimationsEnabled(savedPreference !== 'false')
+    } catch {}
+  }, [])
+
+  useEffect(() => {
+    document.documentElement.dataset.animations = animationsEnabled ? 'on' : 'off'
+    try { localStorage.setItem('chronicle-animations', String(animationsEnabled)) } catch {}
+    return () => { delete document.documentElement.dataset.animations }
+  }, [animationsEnabled])
+
+  function toggleAnimations() {
+    setAnimationsEnabled(enabled => !enabled)
+  }
+
   // Search is available from anywhere in the planner with Ctrl/Cmd + K.
   useEffect(() => {
     const onKeyDown = event => {
@@ -217,7 +235,7 @@ export default function PlannerClient() {
 
   // ── Custom cursor (desktop only) ─────────────────────────────────
   useEffect(() => {
-    if (window.matchMedia('(pointer: coarse)').matches) return
+    if (!animationsEnabled || window.matchMedia('(pointer: coarse)').matches || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
     const dot = document.createElement('div')
     const ring = document.createElement('div')
     dot.className = 'pc-cursor-dot'; ring.className = 'pc-cursor-ring'
@@ -244,12 +262,13 @@ export default function PlannerClient() {
       document.removeEventListener('mouseout', onOut)
       dot.remove(); ring.remove()
     }
-  }, [])
+  }, [animationsEnabled])
 
   // ── Particle canvas ──────────────────────────────────────────────
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
+    if (!animationsEnabled) return
     const ctx = canvas.getContext('2d')
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
     const resize = () => {
@@ -290,7 +309,7 @@ export default function PlannerClient() {
       reduceMotion.removeEventListener?.('change', syncAnimation)
       stop()
     }
-  }, [])
+  }, [animationsEnabled])
 
   // ── Task CRUD ─────────────────────────────────────────────────────
   async function createTask(e) {
@@ -913,7 +932,7 @@ export default function PlannerClient() {
                   {[
                     { icon:'🌙', label:i18n.profile.darkTheme, sub:i18n.profile.darkThemeActive, badge:i18n.profile.darkThemeActive, badgeColor: t.success },
                     { icon:'🎨', label:i18n.profile.accentColor, sub:i18n.profile.accentMono, badge:i18n.profile.accentWhite },
-                    { icon:'✦', label:i18n.profile.animations, sub:i18n.profile.animSub, toggle: true, defaultOn: true },
+                    { icon:'✦', label:i18n.profile.animations, sub:i18n.profile.animSub, toggle: true },
                   ].map((item, i, arr) => (
                     <div key={item.label} style={{ display:'flex', alignItems:'center', gap:12,
                       padding:'14px 16px',
@@ -931,14 +950,11 @@ export default function PlannerClient() {
                         </span>
                       )}
                       {item.toggle && (
-                        <div style={{ width:44, height:26, borderRadius:13,
-                          background: item.defaultOn ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.08)',
-                          border:`1px solid rgba(255,255,255,0.15)`,
-                          display:'flex', alignItems:'center', padding:3,
-                          justifyContent: item.defaultOn ? 'flex-end' : 'flex-start', cursor:'pointer' }}>
-                          <div style={{ width:18, height:18, borderRadius:'50%',
-                            background: item.defaultOn ? '#fff' : 'rgba(255,255,255,0.3)' }} />
-                        </div>
+                        <button type="button" role="switch" aria-checked={animationsEnabled}
+                          aria-label={lang === 'en' ? 'Interface animations' : 'Анимация интерфейса'}
+                          className="pc-motion-switch" onClick={toggleAnimations}>
+                          <span className="pc-motion-switch-thumb" />
+                        </button>
                       )}
                     </div>
                   ))}
