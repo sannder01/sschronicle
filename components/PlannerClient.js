@@ -73,7 +73,12 @@ function formatDate(dateStr) {
 }
 function getDaysLeft(dateStr) {
   if (!dateStr) return null
-  return Math.ceil((new Date(dateStr) - new Date()) / (1000 * 60 * 60 * 24))
+  const [year, month, day] = String(dateStr).slice(0, 10).split('-').map(Number)
+  if (!year || !month || !day) return null
+  const dueDay = Date.UTC(year, month - 1, day)
+  const now = new Date()
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())
+  return Math.round((dueDay - today) / 86400000)
 }
 function getDaysLeftLabel(days, lang = 'ru', i18n = {}) {
   if (days === null) return ''
@@ -131,6 +136,8 @@ export default function PlannerClient() {
 
   const [activePage, setActivePage] = useState(0)
   const [activeFolder, setActiveFolder] = useState('all')
+  const [taskSearch, setTaskSearch] = useState('')
+  const taskSearchRef = useRef(null)
   const [lang, setLang] = useState(() => { if (typeof window !== 'undefined') return localStorage.getItem('chronicle-lang') || 'ru'; return 'ru'; })
   function toggleLang() { const next = lang === 'ru' ? 'en' : 'ru'; setLang(next); if (typeof window !== 'undefined') localStorage.setItem('chronicle-lang', next); }
   const i18n = useT(lang)
@@ -191,6 +198,23 @@ export default function PlannerClient() {
 
   useEffect(() => { loadData() }, [loadData])
 
+  // Search is available from anywhere in the planner with Ctrl/Cmd + K.
+  useEffect(() => {
+    const onKeyDown = event => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        setActivePage(0)
+        taskSearchRef.current?.focus()
+      }
+      if (event.key === 'Escape' && document.activeElement === taskSearchRef.current) {
+        setTaskSearch('')
+        taskSearchRef.current?.blur()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
+
   // ── Custom cursor (desktop only) ─────────────────────────────────
   useEffect(() => {
     if (window.matchMedia('(pointer: coarse)').matches) return
@@ -227,27 +251,45 @@ export default function PlannerClient() {
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')
-    const resize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight }
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const resize = () => {
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5)
+      canvas.width = Math.round(window.innerWidth * dpr)
+      canvas.height = Math.round(window.innerHeight * dpr)
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    }
     resize()
     window.addEventListener('resize', resize)
-    particlesRef.current = Array.from({ length: 60 }, () => ({
+    particlesRef.current = Array.from({ length: window.matchMedia('(pointer: coarse)').matches ? 28 : 60 }, () => ({
       x: Math.random() * window.innerWidth, y: Math.random() * window.innerHeight,
       r: Math.random() * 0.8 + 0.2, vx: (Math.random()-0.5)*0.1, vy: (Math.random()-0.5)*0.1,
       alpha: Math.random() * 0.3 + 0.05,
     }))
     const draw = () => {
-      ctx.clearRect(0,0,canvas.width,canvas.height)
+      ctx.clearRect(0,0,window.innerWidth,window.innerHeight)
       particlesRef.current.forEach(p => {
         p.x += p.vx; p.y += p.vy
-        if (p.x < 0) p.x = canvas.width; if (p.x > canvas.width) p.x = 0
-        if (p.y < 0) p.y = canvas.height; if (p.y > canvas.height) p.y = 0
+        if (p.x < 0) p.x = window.innerWidth; if (p.x > window.innerWidth) p.x = 0
+        if (p.y < 0) p.y = window.innerHeight; if (p.y > window.innerHeight) p.y = 0
         ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2)
         ctx.fillStyle = `rgba(255,255,255,${p.alpha*0.4})`; ctx.fill()
       })
       animRef.current = requestAnimationFrame(draw)
     }
-    draw()
-    return () => { window.removeEventListener('resize', resize); if (animRef.current) cancelAnimationFrame(animRef.current) }
+    const stop = () => { if (animRef.current) cancelAnimationFrame(animRef.current); animRef.current = null }
+    const syncAnimation = () => {
+      stop()
+      if (!document.hidden && !reduceMotion.matches) draw()
+    }
+    document.addEventListener('visibilitychange', syncAnimation)
+    reduceMotion.addEventListener?.('change', syncAnimation)
+    syncAnimation()
+    return () => {
+      window.removeEventListener('resize', resize)
+      document.removeEventListener('visibilitychange', syncAnimation)
+      reduceMotion.removeEventListener?.('change', syncAnimation)
+      stop()
+    }
   }, [])
 
   // ── Task CRUD ─────────────────────────────────────────────────────
@@ -385,11 +427,21 @@ export default function PlannerClient() {
   }
 
   // ── Derived ──────────────────────────────────────────────────────
+  const normalizedSearch = taskSearch.trim().toLocaleLowerCase(lang === 'ru' ? 'ru-RU' : 'en-US')
   const filteredTasks = tasks.filter(task => {
-    if (activeFolder === 'urgent') { const d = getDaysLeft(task.due_date); return d !== null && d <= 1 && !task.completed }
-    if (activeFolder === 'today') { const d = getDaysLeft(task.due_date); return d === 0 }
-    if (activeFolder === 'all') return true
-    return String(task.folder_id) === String(activeFolder)
+    let matchesFolder = true
+    if (activeFolder === 'urgent') {
+      const daysLeft = getDaysLeft(task.due_date)
+      matchesFolder = daysLeft !== null && daysLeft <= 1 && !task.completed
+    } else if (activeFolder === 'today') {
+      matchesFolder = getDaysLeft(task.due_date) === 0
+    } else if (activeFolder !== 'all') {
+      matchesFolder = String(task.folder_id) === String(activeFolder)
+    }
+    if (!matchesFolder) return false
+    if (!normalizedSearch) return true
+    const folderName = folders.find(folder => String(folder.id) === String(task.folder_id))?.name || ''
+    return `${task.title || ''} ${folderName}`.toLocaleLowerCase(lang === 'ru' ? 'ru-RU' : 'en-US').includes(normalizedSearch)
   })
   const completedCount = tasks.filter(tk => tk.completed).length
   const totalCount = tasks.length
@@ -536,6 +588,23 @@ export default function PlannerClient() {
                 </div>
               </header>
 
+              <div className="pc-task-search">
+                <span className="pc-task-search-icon" aria-hidden="true">⌕</span>
+                <input
+                  ref={taskSearchRef}
+                  type="search"
+                  value={taskSearch}
+                  onChange={event => setTaskSearch(event.target.value)}
+                  placeholder={lang === 'en' ? 'Search tasks and folders' : 'Поиск задач и папок'}
+                  aria-label={lang === 'en' ? 'Search tasks and folders' : 'Поиск задач и папок'}
+                  className="pc-task-search-input"
+                />
+                {taskSearch ? (
+                  <button type="button" className="pc-task-search-clear" onClick={() => setTaskSearch('')} aria-label={lang === 'en' ? 'Clear search' : 'Очистить поиск'}>×</button>
+                ) : <kbd className="pc-task-search-shortcut">Ctrl K</kbd>}
+                {normalizedSearch && <span className="pc-task-search-count">{filteredTasks.length}</span>}
+              </div>
+
               {/* Folder tabs */}
               <div className="pc-folder-tabs">
                 {allFolders.map(folder => {
@@ -544,7 +613,7 @@ export default function PlannerClient() {
                   return (
                     <div key={folder.id} className="pc-folder-tab-wrap">
                       {/* FIX: type="button" */}
-                      <button type="button" className="pc-folder-tab" onClick={() => setActiveFolder(folder.id)}
+                      <button type="button" className="pc-folder-tab" data-active={isActive} onClick={() => setActiveFolder(folder.id)}
                         style={{ background: isActive ? t.surface : 'transparent', borderColor: isActive ? (folder.color||'rgba(255,255,255,0.4)') : t.cardBorder, color: isActive ? t.text : t.textSub, fontWeight: isActive ? 600 : 400 }}>
                         <span style={{ color: folder.color||t.textSub }}>{folder.emoji}</span>
                         <span>{folder.name}</span>
@@ -606,7 +675,14 @@ export default function PlannerClient() {
               {/* Task list */}
               <div className="pc-task-list" ref={taskListRef}>
                 {loading ? <LoadingState t={t} />
-                : filteredTasks.length === 0 ? <EmptyState t={t} activeFolder={activeFolder} setShowForm={setShowForm} lang={lang} />
+                : filteredTasks.length === 0 ? normalizedSearch ? (
+                  <div className="pc-empty" role="status">
+                    <div className="pc-empty-icon" aria-hidden="true">⌕</div>
+                    <div className="pc-empty-title">{lang === 'en' ? 'No matching tasks' : 'Ничего не найдено'}</div>
+                    <div className="pc-empty-sub">{lang === 'en' ? 'Try another title or folder name' : 'Попробуйте другое название или папку'}</div>
+                    <button type="button" className="pc-btn-ghost" onClick={() => setTaskSearch('')}>{lang === 'en' ? 'Clear search' : 'Сбросить поиск'}</button>
+                  </div>
+                ) : <EmptyState t={t} activeFolder={activeFolder} setShowForm={setShowForm} lang={lang} />
                 : <>
                   {pendingTasks.map((task, i) => <TaskCard key={task.id} task={task} t={t} index={i} onToggle={() => toggleTask(task)} onDelete={() => setDeleteConfirm(task)} lang={lang} i18n={i18n} onEdit={() => openEditTask(task)} folders={folders} completed={false} />)}
                   {doneTasks.length > 0 && <>
@@ -989,9 +1065,13 @@ export default function PlannerClient() {
         </div>
 
         {/* ── BOTTOM NAV ── */}
-        <nav className="pc-bottom-nav" style={{ background: t.navBg, borderTopColor: t.cardBorder }}>
+        <nav className="pc-bottom-nav" aria-label={lang === 'en' ? 'Main navigation' : 'Основная навигация'} style={{ background: t.navBg, borderTopColor: t.cardBorder }}>
+          <div className="pc-nav-brand" aria-label="Chronicle">
+            <span>CHRONICLE</span>
+            <span className="pc-nav-brand-sub">PERSONAL SYSTEMS</span>
+          </div>
           {getPages(i18n).map(page => (
-            <button type="button" key={page.id} className="pc-nav-btn" onClick={() => setActivePage(page.id)}
+            <button type="button" key={page.id} className={`pc-nav-btn${activePage === page.id ? ' active' : ''}`} aria-current={activePage === page.id ? 'page' : undefined} onClick={() => setActivePage(page.id)}
               style={{ color: activePage === page.id ? t.text : t.textSub }}>
               <span className="pc-nav-icon" style={{ opacity: activePage === page.id ? 1 : 0.5 }}>{page.icon}</span>
               <span className="pc-nav-label" style={{ fontWeight: activePage === page.id ? 600 : 400 }}>{page.label}</span>
