@@ -13,3 +13,6 @@ dist/
 test-results/
 playwright-report/
 .browser-state/
+
+.vercel
+.env*.local

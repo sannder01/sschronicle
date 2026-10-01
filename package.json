@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "vercel-build": "node scripts/vercel-build.js",
     "start": "next start",
     "migrate": "node scripts/migrate.js",
     "lint": "eslint app components lib scripts tests --ext .js,.mjs",
