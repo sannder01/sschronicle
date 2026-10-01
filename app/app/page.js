@@ -1,2 +1,4 @@
 import { redirect } from 'next/navigation'
-export default function AppPage() { redirect('/app/tasks') }
+export default function AppPage() {
+  redirect('/app/tasks')
+}
