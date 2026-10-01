@@ -1,110 +1,49 @@
-// app/api/tg-webhook/route.js
-// ╔═══════════════════════════════════════════════════════════════════╗
-// ║  CHRONICLE — Telegram → Web webhook receiver                      ║
-// ║  Bot calls this endpoint when tasks are created/updated/deleted   ║
-// ╚═══════════════════════════════════════════════════════════════════╝
+import { createHash } from 'node:crypto'
+import { api, json, readJson, ApiError } from '@/lib/api'
+import { transaction } from '@/lib/db'
+import { createTask,updateTask,deleteTask } from '@/lib/tasks'
+import { secretMatches } from '@/lib/telegram'
+import { text } from '@/lib/validation'
 
-import { query } from '@/lib/db'
-import { NextResponse } from 'next/server'
-
-// Secret shared between bot .env and web .env.local
-const WEBHOOK_SECRET = process.env.TG_WEBHOOK_SECRET || ''
-
-// ── Verify the secret header sent by the bot
-function isAuthorized(req) {
-  if (!WEBHOOK_SECRET) return false
-  const header = req.headers.get('x-webhook-secret') || ''
-  return header === WEBHOOK_SECRET
-}
-
-// ── POST /api/tg-webhook
-export async function POST(req) {
-  if (!isAuthorized(req)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+export const POST = api(async req => {
+  if (!secretMatches(req.headers.get('x-webhook-secret'),process.env.TG_WEBHOOK_SECRET)) throw new ApiError(401,'Unauthorized.','UNAUTHORIZED')
+  const body = await readJson(req,16384)
+  const chatId = String(body.chat_id ?? '')
+  if (!/^-?\d{1,20}$/.test(chatId)) throw new ApiError(400,'Invalid chat_id.')
+  if (body.action === 'account_linked') {
+    const token = text(body.token,{field:'token',max:100})
+    const hash = createHash('sha256').update(token.replace(/^link_/, '')).digest('hex')
+    await transaction(async client => {
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1))',['telegram:'+chatId])
+      const {rows} = await client.query('DELETE FROM telegram_link_tokens WHERE token_hash=$1 AND expires_at>NOW() RETURNING user_id',[hash])
+      if (!rows.length) throw new ApiError(410,'This link has expired or has already been used.','LINK_EXPIRED')
+      const userId = rows[0].user_id
+      const other = await client.query('SELECT user_id FROM tg_connections WHERE chat_id=$1 AND user_id<>$2',[chatId,userId])
+      if (other.rows.length) throw new ApiError(409,'This Telegram account is connected to another Chronicle account.','ALREADY_CONNECTED')
+      await client.query('INSERT INTO tg_connections(user_id,chat_id) VALUES($1,$2) ON CONFLICT(user_id) DO UPDATE SET chat_id=EXCLUDED.chat_id,updated_at=NOW()',[userId,chatId])
+    })
+    return json({ok:true,connected:true})
   }
-
-  let body
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
-
-  const { action, chat_id, task } = body
-
-  // ── Resolve user from tg_connections table
-  const connResult = await query(
-    'SELECT user_id FROM tg_connections WHERE chat_id = $1',
-    [String(chat_id)]
-  )
-  if (!connResult.rows.length) {
-    return NextResponse.json({ error: 'Unknown chat_id — user not linked' }, { status: 404 })
-  }
-  const userId = connResult.rows[0].user_id
-
-  switch (action) {
-
-    // ── Bot created a new task ──────────────────────────────────────
-    case 'task_created': {
-      const { title, due_date, priority } = task || {}
-      if (!title?.trim()) return NextResponse.json({ error: 'title required' }, { status: 400 })
-
-      const res = await query(
-        `INSERT INTO tasks (user_id, title, due_date, priority, completed, source)
-         VALUES ($1, $2, $3, $4, false, 'telegram') RETURNING *`,
-        [
-          userId,
-          title.trim(),
-          due_date || null,
-          priority || 'medium',
-        ]
-      )
-      return NextResponse.json({ ok: true, task: res.rows[0] }, { status: 201 })
+  const result = await transaction(async client => {
+    const {rows} = await client.query('SELECT user_id FROM tg_connections WHERE chat_id=$1',[chatId])
+    if (rows.length !== 1) throw new ApiError(404,'Unknown or ambiguous chat_id. Reconnect Telegram.','NOT_CONNECTED')
+    const userId = rows[0].user_id
+    let eventKey = null
+    if (body.event_id !== undefined) {
+      eventKey = userId+':'+text(String(body.event_id),{field:'event_id',max:120})
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1))',[eventKey])
+      const previous = await client.query('SELECT response FROM telegram_webhook_events WHERE event_id=$1 AND user_id=$2',[eventKey,userId])
+      if (previous.rows.length) return previous.rows[0].response
     }
-
-    // ── Bot updated a task ─────────────────────────────────────────
-    case 'task_updated': {
-      const { id, title, due_date, priority, completed } = task || {}
-      if (!id) return NextResponse.json({ error: 'task id required' }, { status: 400 })
-
-      // Build dynamic UPDATE so only provided fields change
-      const fields = []
-      const vals   = []
-      let idx = 1
-
-      if (title     !== undefined) { fields.push(`title = $${idx++}`);     vals.push(title.trim()) }
-      if (due_date  !== undefined) { fields.push(`due_date = $${idx++}`);  vals.push(due_date || null) }
-      if (priority  !== undefined) { fields.push(`priority = $${idx++}`);  vals.push(priority) }
-      if (completed !== undefined) { fields.push(`completed = $${idx++}`); vals.push(completed) }
-
-      if (!fields.length) return NextResponse.json({ ok: true, note: 'nothing to update' })
-
-      fields.push(`updated_at = NOW()`)
-      vals.push(id, userId)
-
-      const res = await query(
-        `UPDATE tasks SET ${fields.join(', ')}
-         WHERE id = $${idx} AND user_id = $${idx + 1}
-         RETURNING *`,
-        vals
-      )
-      if (!res.rows.length) return NextResponse.json({ error: 'Task not found or not owned' }, { status: 404 })
-      return NextResponse.json({ ok: true, task: res.rows[0] })
+    let response
+    switch (body.action) {
+      case 'task_created': response = {ok:true,task:await createTask(userId,body.task ?? {},'telegram',client)}; break
+      case 'task_updated': response = {ok:true,task:await updateTask(userId,body.task?.id,body.task ?? {},client)}; break
+      case 'task_deleted': response = await deleteTask(userId,body.task?.id,client); break
+      default: throw new ApiError(400,'Unsupported action.')
     }
-
-    // ── Bot deleted a task ─────────────────────────────────────────
-    case 'task_deleted': {
-      const { id } = task || {}
-      if (!id) return NextResponse.json({ error: 'task id required' }, { status: 400 })
-
-      await query(
-        'DELETE FROM tasks WHERE id = $1 AND user_id = $2',
-        [id, userId]
-      )
-      return NextResponse.json({ ok: true })
-    }
-
-    default:
-      return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 })
-  }
-}
+    if (eventKey) await client.query('INSERT INTO telegram_webhook_events(event_id,user_id,response) VALUES($1,$2,$3)',[eventKey,userId,JSON.stringify(response)])
+    return response
+  })
+  return json(result,body.action === 'task_created' ? 201 : 200)
+},{auth:false,csrf:false})

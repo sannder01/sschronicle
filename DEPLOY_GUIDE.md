@@ -1,167 +1,51 @@
-# Chronicle v2.0 — Deploy Guide
+# Развёртывание Chronicle
 
-## Что изменилось в редизайне
+Стек: Next.js 15.5.24 App Router (обновление безопасности с 14.2.35), React 18, NextAuth v4 + Google OAuth, PostgreSQL через pg. Production-проверку ведите на Node.js 22 LTS или более новой поддерживаемой версии. Настоящие OAuth/Telegram-проверки требуют ваших внешних настроек.
 
-### Visual (новое)
-- **Кастомный курсор** — точка + кольцо с магнитным эффектом
-- **Частицы** — улучшенный canvas с mouse-repulsion
-- **Типографика** — Syne (display) + DM Sans (body) + DM Mono (data/mono)
-- **Scanlines overlay** — тонкий ретро-эффект поверх всего
-- **Premium task cards** — hover depth, приоритетные бейджи, XP-метка
-- **Rank panel** — анимированное свечение ранга `pc-rank-glow`
-- **XP bar** — liquid fill transition (0.9s cubic-bezier)
-- **Staggered animations** — все элементы появляются с задержкой
-- **SVG иконки** вместо emoji в системных элементах
-- **Level Up Modal** — улучшенная анимация с pulse rings
+## Локальный запуск
 
-### Tech
-- Добавлены: `@studio-freight/lenis`, `gsap`
-- Все стили переведены в CSS-классы (vs inline styles)
-- CSS Custom Properties для тем (`--primary`, `--text`, etc.)
-- Полная поддержка тёмных тем через CSS variables
+1. Установите зависимости: npm ci.
+2. Скопируйте .env.example в .env.local и заполните DATABASE_URL, NEXTAUTH_URL, NEXTAUTH_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET.
+3. Создайте отдельную локальную PostgreSQL БД и выполните npm run migrate.
+4. Запустите npm run dev и откройте http://localhost:3000.
+5. Проверки: npm run lint, npm test, npm run build. Изолированные проверки БД и браузера: npm run test:db и npm run test:e2e по README.
 
----
+Секрет NextAuth генерируйте криптографическим генератором, например командой:
 
-## Шаг 1 — Замени файлы
+    node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"
 
-Скопируй следующие файлы из этого архива в свой проект:
+Локальная БД на localhost/127.0.0.1 работает без TLS; удалённая по умолчанию использует TLS с проверкой сертификата. Для private-network подключения, требующего plaintext, явно задайте DATABASE_SSL=false. Для собственного CA предпочтительно установите доверенный CA; отключение проверки сертификата допускается только явной переменной DATABASE_SSL_REJECT_UNAUTHORIZED=false.
 
-```
-app/layout.js           → замени существующий
-app/auth/page.js        → замени существующий
-components/PlannerClient.js → замени существующий
-package.json            → замени существующий
-```
+## Google OAuth
 
-**НЕ трогай** (оставь как есть):
-```
-app/api/*               — весь бэкенд
-app/app/page.js
-app/page.js
-lib/*
-hooks/*
-scripts/*
-.env.local
-vercel.json
-```
+Создайте OAuth 2.0 Web application в Google Cloud, настройте consent screen и разрешённых test users, если приложение ещё в режиме Testing. Для локальной среды зарегистрируйте redirect URI:
 
----
+    http://localhost:3000/api/auth/callback/google
 
-## Шаг 2 — Установи зависимости
+Для production зарегистрируйте:
 
-```bash
-npm install
-# или
-yarn install
-```
+    https://YOUR_DOMAIN/api/auth/callback/google
 
-Новые пакеты: `@studio-freight/lenis@^1.0.42`, `gsap@^3.12.5`
+NEXTAUTH_URL должен точно совпадать с публичным origin среды: протокол, hostname, порт. Он используется и для проверки Origin на изменяющих API-запросах. Для staging/preview нужен отдельно зарегистрированный origin/redirect URI. Вход использует Google; паролей и Apple ID в Chronicle нет.
 
----
+## Production
 
-## Шаг 3 — Railway (PostgreSQL)
+Используйте существующий хостинг проекта с поддержкой Next.js Node server/route handlers. Настройте секреты через хранилище хостинга и соединение PostgreSQL; не копируйте .env.local в git. Команда сборки npm run build, запуск npm start (если хостинг сам не управляет Next.js).
 
-Railway уже должен быть настроен. Проверь что в `.env.local` есть:
+Порядок релиза: резервная копия БД → прогон миграций на копии → npm ci → проверки → npm run migrate на целевой БД → сборка/публикация приложения. Миграции выполняются отдельным шагом релиза, а не при каждом запросе. Не редактируйте применённые SQL-файлы: создавайте следующую версию.
 
-```env
-DATABASE_URL=postgresql://...
-NEXTAUTH_SECRET=...
-NEXTAUTH_URL=https://твой-домен.vercel.app
-GOOGLE_CLIENT_ID=...
-GOOGLE_CLIENT_SECRET=...
-```
+После релиза проверьте вход/выход, прямой переход /app/notes и /app/challenges/ID, сохранение задачи, заметки и настройки после обновления страницы. Настройте HTTPS, корректный внешний origin за reverse proxy и доступ приложения к БД. Данные пользователя не должны кэшироваться reverse proxy/CDN.
 
----
+## Telegram и cron
 
-## Шаг 4 — Vercel Deploy
+Telegram является необязательной внешней интеграцией. Задайте TELEGRAM_BOT_TOKEN, TELEGRAM_BOT_USERNAME, TG_WEBHOOK_SECRET и отдельно CRON_SECRET. Сам код внешнего бота не входит в этот репозиторий: он должен поддержать одноразовую команду /start link_TOKEN и передать token на /api/tg-webhook по [точному контракту](docs/BACKEND.md).
 
-```bash
-# Если первый раз
-npx vercel
+Планировщик любого провайдера должен раз в 15 минут выполнять GET /api/cron/notify с Authorization: Bearer CRON_SECRET. Добавляйте его в текущий хостинг только после настройки секретов и проверки поддерживаемой частоты. Для Vercel проверьте доступную частоту cron по вашему тарифу; один deploy сам по себе не означает, что cron работает.
 
-# Если уже подключён
-git add .
-git commit -m "feat: Chronicle v2.0 premium redesign"
-git push
-```
+Задачи без времени напоминаются относительно 09:00 по часовому поясу пользователя. HTTP-успех и подтверждение Telegram обязательны перед записью флага доставки. Ошибки остаются повторяемыми. Подробнее об идемпотентности, отказах, настройках и контрактах — [BACKEND.md](docs/BACKEND.md).
 
-Vercel подхватит push автоматически.
+## Сохранение данных и восстановление
 
----
+Автоматические миграции не уничтожают старые пользовательские таблицы. История удалённого из интерфейса раздела питания/веса остаётся в БД и включается в личный JSON-экспорт. Удаление аккаунта требует явного DELETE и недавнего Google-входа; только оно удаляет данные этого аккаунта.
 
-## Шаг 5 — Vercel Environment Variables
-
-В Vercel Dashboard → Settings → Environment Variables добавь все из .env.local.
-
----
-
-## Опционально — Lenis smooth scroll
-
-Если хочешь добавить Lenis (плавный скролл), создай `components/SmoothScroll.js`:
-
-```jsx
-'use client'
-import { useEffect } from 'react'
-import Lenis from '@studio-freight/lenis'
-
-export default function SmoothScroll({ children }) {
-  useEffect(() => {
-    const lenis = new Lenis({ duration: 1.2, easing: t => Math.min(1, 1.001 - Math.pow(2, -10 * t)) })
-    const raf = time => { lenis.raf(time); requestAnimationFrame(raf) }
-    requestAnimationFrame(raf)
-    return () => lenis.destroy()
-  }, [])
-  return children
-}
-```
-
-Затем оберни в `app/layout.js`:
-```jsx
-import SmoothScroll from '@/components/SmoothScroll'
-// ...
-<body>
-  <SmoothScroll>
-    <Providers>{children}</Providers>
-  </SmoothScroll>
-</body>
-```
-
----
-
-## Опционально — GSAP для анимаций
-
-В любом компоненте:
-
-```jsx
-'use client'
-import { useEffect, useRef } from 'react'
-import { gsap } from 'gsap'
-
-// Пример: анимировать XP bar при монтировании
-useEffect(() => {
-  gsap.fromTo('.pc-xp-fill', { width: 0 }, { width: `${xpProgress}%`, duration: 1.2, ease: 'power3.out' })
-}, [xpProgress])
-```
-
----
-
-## Темы
-
-Переключение между темами сохраняется в `localStorage('chronicle_theme')`.
-Доступные: `void`, `meaCulpa`, `nebula`, `sakura`.
-
----
-
-## Известные нюансы
-
-1. **Кастомный курсор** — автоматически скрывает системный (`cursor: none`).
-   На мобиле не мешает — touch events не триггерят mousemove.
-
-2. **Canvas частицы** — пересоздаются при смене темы (цвет адаптируется к `t.primary`).
-
-3. **Fonts** — загружаются через Google Fonts в `@import`. 
-   Для продакшена лучше использовать `next/font`:
-   ```js
-   import { Syne, DM_Sans, DM_Mono } from 'next/font/google'
-   ```
-   Но текущая реализация работает корректно.
+Перед крупным обновлением сохраняйте pg_dump и проверьте восстановление на отдельной БД. При неудаче миграции вся транзакция откатывается. Для отката приложения используйте предыдущий deploy, совместимый с добавочными изменениями схемы; не откатывайте схему разрушительными командами.

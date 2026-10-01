@@ -1,11 +1,11 @@
 {
   "name": "Chronicle",
   "short_name": "Chronicle",
-  "description": "Your personal intelligence system",
+  "description": "Tasks, notes, habits, and challenges. At your own pace.",
   "start_url": "/app",
   "display": "standalone",
-  "background_color": "#030407",
-  "theme_color": "#030407",
+  "background_color": "#f5f5f7",
+  "theme_color": "#f5f5f7",
   "orientation": "portrait",
   "icons": [
     {
