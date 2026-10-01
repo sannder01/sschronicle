@@ -1,20 +1,109 @@
 const paths = {
-  tasks: <><rect x="4" y="3" width="16" height="18" rx="3"/><path d="m8 9 1 1 2-2m3 1h3M8 15l1 1 2-2m3 1h3"/></>,
-  habits: <><path d="M19 7a8 8 0 1 0 1 9M19 3v5h-5"/><path d="m8 12 3 3 5-6"/></>,
-  challenges: <path d="M6 21V3m0 1c5-4 7 4 13 0v10c-6 4-8-4-13 0"/>,
-  calendar: <><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4m10-4v4M3 10h18m-13 4h1m3 0h1m3 0h1m-9 3h1m3 0h1"/></>,
-  notes: <><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="m9 15 1-5L19 1l4 4-9 9-5 1ZM17 3l4 4"/></>,
-  profile: <><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></>,
-  progress: <><path d="M5 21v-6m7 6V9m7 12V3"/><path d="m3 10 5-5 4 1 7-4"/></>,
-  more: <><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></>,
-  plus: <path d="M12 5v14M5 12h14"/>, close: <path d="m6 6 12 12M6 18 18 6"/>, search: <><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></>,
-  chevron: <path d="m9 5 7 7-7 7"/>, back: <path d="m15 5-7 7 7 7"/>, check: <path d="m5 12 4 4L19 6"/>,
-  folder: <path d="M3 7V5a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/>,
-  trash: <path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/>, edit: <path d="m4 15 12-12 5 5L9 20l-6 1 1-6Zm10-10 5 5"/>,
-  sun: <><circle cx="12" cy="12" r="4"/><path d="M12 1v2m0 18v2M1 12h2m18 0h2M4 4l1.5 1.5m13 13L20 20M4 20l1.5-1.5m13-13L20 4"/></>,
-  moon: <path d="M21 13A9 9 0 0 1 11 3a9 9 0 1 0 10 10Z"/>, logout: <path d="M10 3H4v18h6m-1-9h12m-5-5 5 5-5 5"/>,
-  download: <path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/>, pin: <path d="m8 3 8 0-1 6 4 4v2h-6v7l-2-7H5v-2l4-4-1-6Z"/>,
-  clock: <><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></>, arrow: <path d="M4 12h16m-6-6 6 6-6 6"/>,
-  shield: <><path d="M12 2 3 6v5c0 6 9 11 9 11s9-5 9-11V6l-9-4Z"/><path d="m8 12 3 3 5-6"/></>, leaf: <><path d="M20 3C8 2 2 7 5 15s18 7 15-12Z"/><path d="M3 22 16 9"/></>,
+  tasks: (
+    <>
+      <rect x="4" y="3" width="16" height="18" rx="3" />
+      <path d="m8 9 1 1 2-2m3 1h3M8 15l1 1 2-2m3 1h3" />
+    </>
+  ),
+  habits: (
+    <>
+      <path d="M19 7a8 8 0 1 0 1 9M19 3v5h-5" />
+      <path d="m8 12 3 3 5-6" />
+    </>
+  ),
+  challenges: <path d="M6 21V3m0 1c5-4 7 4 13 0v10c-6 4-8-4-13 0" />,
+  calendar: (
+    <>
+      <rect x="3" y="5" width="18" height="16" rx="3" />
+      <path d="M7 3v4m10-4v4M3 10h18m-13 4h1m3 0h1m3 0h1m-9 3h1m3 0h1" />
+    </>
+  ),
+  notes: (
+    <>
+      <path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="m9 15 1-5L19 1l4 4-9 9-5 1ZM17 3l4 4" />
+    </>
+  ),
+  profile: (
+    <>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21v-2a8 8 0 0 1 16 0v2" />
+    </>
+  ),
+  progress: (
+    <>
+      <path d="M5 21v-6m7 6V9m7 12V3" />
+      <path d="m3 10 5-5 4 1 7-4" />
+    </>
+  ),
+  more: (
+    <>
+      <circle cx="5" cy="12" r="1" />
+      <circle cx="12" cy="12" r="1" />
+      <circle cx="19" cy="12" r="1" />
+    </>
+  ),
+  plus: <path d="M12 5v14M5 12h14" />,
+  close: <path d="m6 6 12 12M6 18 18 6" />,
+  search: (
+    <>
+      <circle cx="10.5" cy="10.5" r="6.5" />
+      <path d="m16 16 5 5" />
+    </>
+  ),
+  chevron: <path d="m9 5 7 7-7 7" />,
+  back: <path d="m15 5-7 7 7 7" />,
+  check: <path d="m5 12 4 4L19 6" />,
+  folder: (
+    <path d="M3 7V5a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" />
+  ),
+  trash: <path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7" />,
+  edit: <path d="m4 15 12-12 5 5L9 20l-6 1 1-6Zm10-10 5 5" />,
+  sun: (
+    <>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 1v2m0 18v2M1 12h2m18 0h2M4 4l1.5 1.5m13 13L20 20M4 20l1.5-1.5m13-13L20 4" />
+    </>
+  ),
+  moon: <path d="M21 13A9 9 0 0 1 11 3a9 9 0 1 0 10 10Z" />,
+  logout: <path d="M10 3H4v18h6m-1-9h12m-5-5 5 5-5 5" />,
+  download: <path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4" />,
+  pin: <path d="m8 3 8 0-1 6 4 4v2h-6v7l-2-7H5v-2l4-4-1-6Z" />,
+  clock: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </>
+  ),
+  arrow: <path d="M4 12h16m-6-6 6 6-6 6" />,
+  shield: (
+    <>
+      <path d="M12 2 3 6v5c0 6 9 11 9 11s9-5 9-11V6l-9-4Z" />
+      <path d="m8 12 3 3 5-6" />
+    </>
+  ),
+  leaf: (
+    <>
+      <path d="M20 3C8 2 2 7 5 15s18 7 15-12Z" />
+      <path d="M3 22 16 9" />
+    </>
+  ),
 }
-export default function Icon({ name = 'tasks', size = 20, ...props }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>{paths[name] || paths.tasks}</svg> }
+export default function Icon({ name = 'tasks', size = 20, ...props }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.65"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
+      {paths[name] || paths.tasks}
+    </svg>
+  )
+}

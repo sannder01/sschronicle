@@ -1,44 +1,532 @@
-'use client';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useApp } from '@/components/AppContext';
-import { Button, Dialog, Input, LoadingState } from '@/components/ui';
-import { api } from '@/lib/client';
-import { addDays, displayDate, todayInZone, weekday } from '@/lib/dates';
-import { trackingErrorMessage } from '@/lib/tracking-client';
-import ChallengeForm from './ChallengeForm';
+'use client'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useApp } from '@/components/AppContext'
+import { Button, Dialog, Input, LoadingState } from '@/components/ui'
+import { api } from '@/lib/client'
+import { addDays, displayDate, todayInZone, weekday } from '@/lib/dates'
+import { trackingErrorMessage } from '@/lib/tracking-client'
+import ChallengeForm from './ChallengeForm'
 
 export default function ChallengeDetail({ id }) {
-  const { t, language, settings, notify, refreshProfile } = useApp(), router = useRouter();
-  const [data, setData] = useState(null), [error, setError] = useState(''), [attemptId, setAttemptId] = useState('');
-  const [edit, setEdit] = useState(false), [restart, setRestart] = useState(null), [confirm, setConfirm] = useState(''), [busy, setBusy] = useState(false);
-  const [day, setDay] = useState(null);
-  const request = useRef(0), mutation = useRef(false);
-  const load = useCallback(async () => { const version = ++request.current; try { const next = await api(`/api/challenges/${id}${attemptId ? `?attempt=${attemptId}` : ''}`); if (version === request.current) { setData(next); setError(''); } } catch (err) { if (version === request.current) setError(trackingErrorMessage(err, t)); } }, [id, attemptId, t]);
-  useEffect(() => { load(); const timer = setInterval(load, 60000); window.addEventListener('focus', load); return () => { clearInterval(timer); window.removeEventListener('focus', load); }; }, [load]);
-  async function action(url, method, body, complete) { if (mutation.current) return; mutation.current = true; setBusy(true); try { const result = await api(url, { method, body }); await load(); refreshProfile?.(); complete?.(result); } catch (err) { notify(trackingErrorMessage(err, t), 'error'); } finally { mutation.current = false; setBusy(false); } }
-  if (error) return <div className="panel tracking-error" role="alert"><p>{error}</p><Button onClick={load}>{t('Повторить', 'Retry')}</Button><Link href="/app/challenges">{t('К челленджам', 'All challenges')}</Link></div>;
-  if (!data) return <LoadingState />;
-  const { challenge, attempt, attempts, stats, entries } = data;
-  const marks = new Map(entries.map(entry => [entry.entry_date, entry]));
-  const labels = language === 'en' ? ['M', 'T', 'W', 'T', 'F', 'S', 'S'] : ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
-  const statusText = status => status === 'success' ? t('Выполнено', 'Completed') : status === 'failed' ? t('Не выполнено', 'Not completed') : t('Без отметки', 'Not marked');
-  function openDay(date) { const entry = marks.get(date); setDay({ date, status: entry?.status || 'unset', note: entry?.note || '' }); }
-  const days = Array.from({ length: attempt.duration }, (_, offset) => addDays(attempt.start_date, offset));
-  return <div className="tracking-page challenge-detail" style={{ '--item-color': challenge.color }}>
-    <Link className="tracking-back" href="/app/challenges">‹ {t('Челленджи', 'Challenges')}</Link>
-    <header className="page-header"><div className="challenge-detail-heading"><span className="challenge-icon large">{challenge.icon}</span><div><div className="tracking-eyebrow">{challenge.archived_at ? t('В архиве', 'Archived') : stats.goal_completed ? t('Цель выполнена', 'Goal achieved') : stats.period_ended ? t('Период завершён', 'Period ended') : stats.upcoming ? t('Новая глава впереди', 'A new chapter ahead') : `${t('День', 'Day')} ${stats.current_day} ${t('из', 'of')} ${attempt.duration}`}</div><h1>{challenge.title}</h1></div></div><Button variant="secondary" onClick={() => setEdit(true)}>{t('Изменить', 'Edit')}</Button></header>
-    <section className="challenge-overview panel"><div className="challenge-rule-content"><span className="tracking-eyebrow">{t('Моё правило', 'My rule')}</span><p>{challenge.description || t('Сделать сегодня ещё один шаг к своей цели.', 'Take another step toward my goal today.')}</p><span className="muted">{displayDate(attempt.start_date, language, { year: 'numeric' })} — {displayDate(stats.end_date, language, { year: 'numeric' })}</span><small className="muted">{attempt.timezone} · {t('Часовой пояс попытки сохранён', 'This attempt keeps its timezone')}</small></div><div className="challenge-ring" style={{ '--progress': `${stats.percentage}%` }}><div><strong>{stats.percentage}%</strong><span>{stats.successful_days} / {attempt.duration} {t('дней', 'days')}</span></div></div></section>
-    <div className="tracking-stat-grid"><div className="panel tracking-stat"><span>{t('Успешных дней', 'Successful days')}</span><strong>{stats.successful_days}<small> / {attempt.duration}</small></strong></div><div className="panel tracking-stat"><span>{t('Текущая серия', 'Current streak')}</span><strong>{stats.current_streak}<small> {t('дн.', 'days')}</small></strong></div><div className="panel tracking-stat"><span>{t('Лучшая серия', 'Best streak')}</span><strong>{stats.best_streak}<small> {t('дн.', 'days')}</small></strong></div></div>
-    {stats.period_ended && !stats.goal_completed && <p className="tracking-result panel">{t(`Период завершён: ${stats.successful_days} из ${attempt.duration} успешных дней. Каждый из них имеет значение.`, `Period ended: ${stats.successful_days} of ${attempt.duration} successful days. Every one of them counts.`)}</p>}
-    {!challenge.archived_at && stats.today >= attempt.start_date && stats.today <= stats.end_date && <div className="challenge-today panel"><div><strong>{t('Как прошёл сегодняшний день?', 'How did today go?')}</strong><p className="muted">{marks.get(stats.today)?.status && marks.get(stats.today).status !== 'unset' ? statusText(marks.get(stats.today).status) : t('До конца дня ещё есть время.', 'There is still time today.')}</p></div><Button variant="primary" onClick={() => openDay(stats.today)}>{marks.get(stats.today)?.status && marks.get(stats.today).status !== 'unset' ? t('Изменить отметку', 'Edit check-in') : t('Отметить сегодня', 'Check in today')}</Button></div>}
-    <div className="challenge-detail-columns"><section className="panel challenge-calendar-panel"><div className="tracking-section-header"><h2>{t('Ваш путь', 'Your journey')}</h2><span className="muted tracking-caption">{t('Нажмите на день', 'Choose a day')}</span></div><div className="challenge-day-grid">{labels.map((label, i) => <span className="tracking-weekday" key={`label-${i}`}>{label}</span>)}{Array.from({ length: weekday(attempt.start_date) }, (_, i) => <span key={`blank-${i}`} />)}{days.map((date, offset) => { const entry = marks.get(date), future = date > stats.today; return <button key={date} className={`challenge-day ${entry?.status || 'unset'} ${date === stats.today ? 'today' : ''}`} disabled={future || Boolean(challenge.archived_at)} aria-label={`${displayDate(date, language)}: ${statusText(entry?.status)}, ${t('день', 'day')} ${offset + 1}`} title={displayDate(date, language)} onClick={() => openDay(date)}><span>{offset + 1}</span><small>{entry?.status === 'success' ? '✓' : entry?.status === 'failed' ? '−' : entry?.note ? '·' : ''}</small></button>; })}</div><div className="tracking-calendar-legend"><span><i className="success" />{t('Выполнено', 'Completed')}</span><span><i className="failed" />{t('Не выполнено', 'Not completed')}</span><span><i />{t('Без отметки', 'Not marked')}</span></div><p className="muted tracking-caption">{t('Прошедшие дни можно исправлять. Пустой сегодняшний день ещё не считается пропуском.', 'You can correct past days. An unmarked today is not a missed day yet.')}</p></section>
-      <section className="panel challenge-history"><div className="tracking-section-header"><h2>{t('История', 'History')}</h2><span className="muted">{entries.filter(entry => entry.status !== 'unset' || entry.note).length}</span></div>{entries.filter(entry => entry.status !== 'unset' || entry.note).length ? <div className="challenge-history-list">{entries.filter(entry => entry.status !== 'unset' || entry.note).map(entry => <button key={entry.entry_date} disabled={Boolean(challenge.archived_at)} className="challenge-history-entry" onClick={() => openDay(entry.entry_date)}><span className={`tracking-history-dot ${entry.status}`}>{entry.status === 'success' ? '✓' : entry.status === 'failed' ? '−' : '·'}</span><span><strong>{displayDate(entry.entry_date, language)}</strong><small>{statusText(entry.status)}</small>{entry.note && <p>{entry.note}</p>}</span><span className="muted">›</span></button>)}</div> : <p className="muted tracking-empty-history">{t('Ваши отметки и заметки появятся здесь.', 'Your check-ins and day notes will appear here.')}</p>}</section></div>
-    <section className="panel challenge-manage"><label className="field">{t('Попытки', 'Attempts')}<select className="input" value={attempt.id} onChange={event => { setData(null); setAttemptId(event.target.value); }}>{attempts.map((item, index) => <option key={item.id} value={item.id}>{t('Попытка', 'Attempt')} {attempts.length - index} · {displayDate(item.start_date, language, { year: 'numeric' })}{index === 0 ? ` · ${t('текущая', 'latest')}` : ''}</option>)}</select></label><div className="tracking-manage-buttons"><Button variant="secondary" onClick={() => setRestart({ start_date: todayInZone(settings?.timezone || 'UTC'), duration: attempt.duration })}>{t('Начать заново', 'Start again')}</Button><Button variant="secondary" disabled={busy} onClick={() => action(`/api/challenges/${id}`, 'PATCH', { archived: !challenge.archived_at })}>{challenge.archived_at ? t('Вернуть из архива', 'Restore from archive') : t('В архив', 'Archive')}</Button><Button variant="danger" onClick={() => setConfirm('delete')}>{t('Удалить', 'Delete')}</Button></div></section>
-    {edit && <ChallengeForm initial={{ ...challenge, ...attempts[0], id: challenge.id, period_locked: attempts[0].start_date <= todayInZone(attempts[0].timezone) }} onClose={() => setEdit(false)} busy={busy} onSave={form => action(`/api/challenges/${id}`, 'PATCH', form, () => setEdit(false))} />}
-    {day && <Dialog open title={displayDate(day.date, language, { weekday: 'long', year: 'numeric' })} onClose={busy ? undefined : () => setDay(null)}><form className="stack tracking-form" onSubmit={event => { event.preventDefault(); action(`/api/challenges/${id}/entries`, 'PUT', { attempt_id: attempt.id, ...day }, () => setDay(null)); }}><div className="tracking-status-picker">{['success', 'failed', 'unset'].map(status => <button type="button" key={status} className={`${status} ${day.status === status ? 'selected' : ''}`} aria-pressed={day.status === status} onClick={() => setDay(old => ({ ...old, status }))}>{status === 'success' ? '✓ ' : status === 'failed' ? '− ' : ''}{statusText(status)}</button>)}</div><label className="field">{t('Заметка к дню', 'A note for this day')}<textarea className="input" rows={4} maxLength={2000} value={day.note} onChange={event => setDay(old => ({ ...old, note: event.target.value }))} placeholder={t('Что помогло? Что попробуете завтра?', 'What helped? What will you try tomorrow?')} /></label><p className="muted tracking-caption">{t('«Без отметки» отменяет результат и сохраняет заметку.', '“Not marked” clears the result and keeps your note.')}</p><div className="tracking-dialog-actions"><Button type="button" variant="secondary" onClick={() => setDay(null)} disabled={busy}>{t('Отмена', 'Cancel')}</Button><Button variant="primary" type="submit" disabled={busy}>{busy ? t('Сохранение…', 'Saving…') : t('Сохранить', 'Save')}</Button></div></form></Dialog>}
-    {restart && <Dialog open title={t('Новая попытка', 'A fresh attempt')} onClose={busy ? undefined : () => setRestart(null)}><form className="stack tracking-form" onSubmit={event => { event.preventDefault(); action(`/api/challenges/${id}/restart`, 'POST', { ...restart, previous_attempt_id: attempts[0].id }, result => { setRestart(null); setData(null); setAttemptId(String(result.id)); }); }}><p className="muted">{t('Предыдущие попытки и их история сохранятся. Новая попытка использует часовой пояс из профиля.', 'Previous attempts and their history are kept. The new attempt uses the timezone in your profile.')}</p><label className="field">{t('Дата начала', 'Start date')}<Input type="date" min="1900-01-01" max="9998-12-31" required value={restart.start_date} onChange={event => setRestart(old => ({ ...old, start_date: event.target.value }))} /></label><label className="field">{t('Длительность, дней', 'Duration, days')}<Input type="number" min={1} max={366} required value={restart.duration} onChange={event => setRestart(old => ({ ...old, duration: Number(event.target.value) }))} /></label><div className="tracking-dialog-actions"><Button type="button" variant="secondary" disabled={busy} onClick={() => setRestart(null)}>{t('Отмена', 'Cancel')}</Button><Button variant="primary" type="submit" disabled={busy}>{t('Начать попытку', 'Start attempt')}</Button></div></form></Dialog>}
-    <Dialog open={confirm === 'delete'} title={t('Удалить челлендж?', 'Delete challenge?')} onClose={busy ? undefined : () => setConfirm('')}><p>{t('Все попытки, отметки и заметки этого челленджа будут удалены. Это действие нельзя отменить.', 'All attempts, check-ins, and notes for this challenge will be deleted. This cannot be undone.')}</p><div className="tracking-dialog-actions"><Button variant="secondary" disabled={busy} onClick={() => setConfirm('')}>{t('Отмена', 'Cancel')}</Button><Button variant="danger" disabled={busy} onClick={async () => { setBusy(true); try { await api(`/api/challenges/${id}`, { method: 'DELETE' }); refreshProfile?.(); router.push('/app/challenges'); } catch (err) { notify(trackingErrorMessage(err, t), 'error'); setBusy(false); } }}>{t('Удалить навсегда', 'Delete permanently')}</Button></div></Dialog>
-  </div>;
+  const { t, language, settings, notify, refreshProfile } = useApp(),
+    router = useRouter()
+  const [data, setData] = useState(null),
+    [error, setError] = useState(''),
+    [attemptId, setAttemptId] = useState('')
+  const [edit, setEdit] = useState(false),
+    [restart, setRestart] = useState(null),
+    [confirm, setConfirm] = useState(''),
+    [busy, setBusy] = useState(false)
+  const [day, setDay] = useState(null)
+  const request = useRef(0),
+    mutation = useRef(false)
+  const load = useCallback(async () => {
+    const version = ++request.current
+    try {
+      const next = await api(`/api/challenges/${id}${attemptId ? `?attempt=${attemptId}` : ''}`)
+      if (version === request.current) {
+        setData(next)
+        setError('')
+      }
+    } catch (err) {
+      if (version === request.current) setError(trackingErrorMessage(err, t))
+    }
+  }, [id, attemptId, t])
+  useEffect(() => {
+    load()
+    const timer = setInterval(load, 60000)
+    window.addEventListener('focus', load)
+    return () => {
+      clearInterval(timer)
+      window.removeEventListener('focus', load)
+    }
+  }, [load])
+  async function action(url, method, body, complete) {
+    if (mutation.current) return
+    mutation.current = true
+    setBusy(true)
+    try {
+      const result = await api(url, { method, body })
+      await load()
+      refreshProfile?.()
+      complete?.(result)
+    } catch (err) {
+      notify(trackingErrorMessage(err, t), 'error')
+    } finally {
+      mutation.current = false
+      setBusy(false)
+    }
+  }
+  if (error)
+    return (
+      <div className="panel tracking-error" role="alert">
+        <p>{error}</p>
+        <Button onClick={load}>{t('Повторить', 'Retry')}</Button>
+        <Link href="/app/challenges">{t('К челленджам', 'All challenges')}</Link>
+      </div>
+    )
+  if (!data) return <LoadingState />
+  const { challenge, attempt, attempts, stats, entries } = data
+  const marks = new Map(entries.map((entry) => [entry.entry_date, entry]))
+  const labels =
+    language === 'en'
+      ? ['M', 'T', 'W', 'T', 'F', 'S', 'S']
+      : ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
+  const statusText = (status) =>
+    status === 'success'
+      ? t('Выполнено', 'Completed')
+      : status === 'failed'
+        ? t('Не выполнено', 'Not completed')
+        : t('Без отметки', 'Not marked')
+  function openDay(date) {
+    const entry = marks.get(date)
+    setDay({ date, status: entry?.status || 'unset', note: entry?.note || '' })
+  }
+  const days = Array.from({ length: attempt.duration }, (_, offset) =>
+    addDays(attempt.start_date, offset),
+  )
+  return (
+    <div className="tracking-page challenge-detail" style={{ '--item-color': challenge.color }}>
+      <Link className="tracking-back" href="/app/challenges">
+        ‹ {t('Челленджи', 'Challenges')}
+      </Link>
+      <header className="page-header">
+        <div className="challenge-detail-heading">
+          <span className="challenge-icon large">{challenge.icon}</span>
+          <div>
+            <div className="tracking-eyebrow">
+              {challenge.archived_at
+                ? t('В архиве', 'Archived')
+                : stats.goal_completed
+                  ? t('Цель выполнена', 'Goal achieved')
+                  : stats.period_ended
+                    ? t('Период завершён', 'Period ended')
+                    : stats.upcoming
+                      ? t('Новая глава впереди', 'A new chapter ahead')
+                      : `${t('День', 'Day')} ${stats.current_day} ${t('из', 'of')} ${attempt.duration}`}
+            </div>
+            <h1>{challenge.title}</h1>
+          </div>
+        </div>
+        <Button variant="secondary" onClick={() => setEdit(true)}>
+          {t('Изменить', 'Edit')}
+        </Button>
+      </header>
+      <section className="challenge-overview panel">
+        <div className="challenge-rule-content">
+          <span className="tracking-eyebrow">{t('Моё правило', 'My rule')}</span>
+          <p>
+            {challenge.description ||
+              t(
+                'Сделать сегодня ещё один шаг к своей цели.',
+                'Take another step toward my goal today.',
+              )}
+          </p>
+          <span className="muted">
+            {displayDate(attempt.start_date, language, { year: 'numeric' })} —{' '}
+            {displayDate(stats.end_date, language, { year: 'numeric' })}
+          </span>
+          <small className="muted">
+            {attempt.timezone} ·{' '}
+            {t('Часовой пояс попытки сохранён', 'This attempt keeps its timezone')}
+          </small>
+        </div>
+        <div className="challenge-ring" style={{ '--progress': `${stats.percentage}%` }}>
+          <div>
+            <strong>{stats.percentage}%</strong>
+            <span>
+              {stats.successful_days} / {attempt.duration} {t('дней', 'days')}
+            </span>
+          </div>
+        </div>
+      </section>
+      <div className="tracking-stat-grid">
+        <div className="panel tracking-stat">
+          <span>{t('Успешных дней', 'Successful days')}</span>
+          <strong>
+            {stats.successful_days}
+            <small> / {attempt.duration}</small>
+          </strong>
+        </div>
+        <div className="panel tracking-stat">
+          <span>{t('Текущая серия', 'Current streak')}</span>
+          <strong>
+            {stats.current_streak}
+            <small> {t('дн.', 'days')}</small>
+          </strong>
+        </div>
+        <div className="panel tracking-stat">
+          <span>{t('Лучшая серия', 'Best streak')}</span>
+          <strong>
+            {stats.best_streak}
+            <small> {t('дн.', 'days')}</small>
+          </strong>
+        </div>
+      </div>
+      {stats.period_ended && !stats.goal_completed && (
+        <p className="tracking-result panel">
+          {t(
+            `Период завершён: ${stats.successful_days} из ${attempt.duration} успешных дней. Каждый из них имеет значение.`,
+            `Period ended: ${stats.successful_days} of ${attempt.duration} successful days. Every one of them counts.`,
+          )}
+        </p>
+      )}
+      {!challenge.archived_at &&
+        stats.today >= attempt.start_date &&
+        stats.today <= stats.end_date && (
+          <div className="challenge-today panel">
+            <div>
+              <strong>{t('Как прошёл сегодняшний день?', 'How did today go?')}</strong>
+              <p className="muted">
+                {marks.get(stats.today)?.status && marks.get(stats.today).status !== 'unset'
+                  ? statusText(marks.get(stats.today).status)
+                  : t('До конца дня ещё есть время.', 'There is still time today.')}
+              </p>
+            </div>
+            <Button variant="primary" onClick={() => openDay(stats.today)}>
+              {marks.get(stats.today)?.status && marks.get(stats.today).status !== 'unset'
+                ? t('Изменить отметку', 'Edit check-in')
+                : t('Отметить сегодня', 'Check in today')}
+            </Button>
+          </div>
+        )}
+      <div className="challenge-detail-columns">
+        <section className="panel challenge-calendar-panel">
+          <div className="tracking-section-header">
+            <h2>{t('Ваш путь', 'Your journey')}</h2>
+            <span className="muted tracking-caption">{t('Нажмите на день', 'Choose a day')}</span>
+          </div>
+          <div className="challenge-day-grid">
+            {labels.map((label, i) => (
+              <span className="tracking-weekday" key={`label-${i}`}>
+                {label}
+              </span>
+            ))}
+            {Array.from({ length: weekday(attempt.start_date) }, (_, i) => (
+              <span key={`blank-${i}`} />
+            ))}
+            {days.map((date, offset) => {
+              const entry = marks.get(date),
+                future = date > stats.today
+              return (
+                <button
+                  key={date}
+                  className={`challenge-day ${entry?.status || 'unset'} ${date === stats.today ? 'today' : ''}`}
+                  disabled={future || Boolean(challenge.archived_at)}
+                  aria-label={`${displayDate(date, language)}: ${statusText(entry?.status)}, ${t('день', 'day')} ${offset + 1}`}
+                  title={displayDate(date, language)}
+                  onClick={() => openDay(date)}
+                >
+                  <span>{offset + 1}</span>
+                  <small>
+                    {entry?.status === 'success'
+                      ? '✓'
+                      : entry?.status === 'failed'
+                        ? '−'
+                        : entry?.note
+                          ? '·'
+                          : ''}
+                  </small>
+                </button>
+              )
+            })}
+          </div>
+          <div className="tracking-calendar-legend">
+            <span>
+              <i className="success" />
+              {t('Выполнено', 'Completed')}
+            </span>
+            <span>
+              <i className="failed" />
+              {t('Не выполнено', 'Not completed')}
+            </span>
+            <span>
+              <i />
+              {t('Без отметки', 'Not marked')}
+            </span>
+          </div>
+          <p className="muted tracking-caption">
+            {t(
+              'Прошедшие дни можно исправлять. Пустой сегодняшний день ещё не считается пропуском.',
+              'You can correct past days. An unmarked today is not a missed day yet.',
+            )}
+          </p>
+        </section>
+        <section className="panel challenge-history">
+          <div className="tracking-section-header">
+            <h2>{t('История', 'History')}</h2>
+            <span className="muted">
+              {entries.filter((entry) => entry.status !== 'unset' || entry.note).length}
+            </span>
+          </div>
+          {entries.filter((entry) => entry.status !== 'unset' || entry.note).length ? (
+            <div className="challenge-history-list">
+              {entries
+                .filter((entry) => entry.status !== 'unset' || entry.note)
+                .map((entry) => (
+                  <button
+                    key={entry.entry_date}
+                    disabled={Boolean(challenge.archived_at)}
+                    className="challenge-history-entry"
+                    onClick={() => openDay(entry.entry_date)}
+                  >
+                    <span className={`tracking-history-dot ${entry.status}`}>
+                      {entry.status === 'success' ? '✓' : entry.status === 'failed' ? '−' : '·'}
+                    </span>
+                    <span>
+                      <strong>{displayDate(entry.entry_date, language)}</strong>
+                      <small>{statusText(entry.status)}</small>
+                      {entry.note && <p>{entry.note}</p>}
+                    </span>
+                    <span className="muted">›</span>
+                  </button>
+                ))}
+            </div>
+          ) : (
+            <p className="muted tracking-empty-history">
+              {t(
+                'Ваши отметки и заметки появятся здесь.',
+                'Your check-ins and day notes will appear here.',
+              )}
+            </p>
+          )}
+        </section>
+      </div>
+      <section className="panel challenge-manage">
+        <label className="field">
+          {t('Попытки', 'Attempts')}
+          <select
+            className="input"
+            value={attempt.id}
+            onChange={(event) => {
+              setData(null)
+              setAttemptId(event.target.value)
+            }}
+          >
+            {attempts.map((item, index) => (
+              <option key={item.id} value={item.id}>
+                {t('Попытка', 'Attempt')} {attempts.length - index} ·{' '}
+                {displayDate(item.start_date, language, { year: 'numeric' })}
+                {index === 0 ? ` · ${t('текущая', 'latest')}` : ''}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="tracking-manage-buttons">
+          <Button
+            variant="secondary"
+            onClick={() =>
+              setRestart({
+                start_date: todayInZone(settings?.timezone || 'UTC'),
+                duration: attempt.duration,
+              })
+            }
+          >
+            {t('Начать заново', 'Start again')}
+          </Button>
+          <Button
+            variant="secondary"
+            disabled={busy}
+            onClick={() =>
+              action(`/api/challenges/${id}`, 'PATCH', { archived: !challenge.archived_at })
+            }
+          >
+            {challenge.archived_at
+              ? t('Вернуть из архива', 'Restore from archive')
+              : t('В архив', 'Archive')}
+          </Button>
+          <Button variant="danger" onClick={() => setConfirm('delete')}>
+            {t('Удалить', 'Delete')}
+          </Button>
+        </div>
+      </section>
+      {edit && (
+        <ChallengeForm
+          initial={{
+            ...challenge,
+            ...attempts[0],
+            id: challenge.id,
+            period_locked: attempts[0].start_date <= todayInZone(attempts[0].timezone),
+          }}
+          onClose={() => setEdit(false)}
+          busy={busy}
+          onSave={(form) => action(`/api/challenges/${id}`, 'PATCH', form, () => setEdit(false))}
+        />
+      )}
+      {day && (
+        <Dialog
+          open
+          title={displayDate(day.date, language, { weekday: 'long', year: 'numeric' })}
+          onClose={busy ? undefined : () => setDay(null)}
+        >
+          <form
+            className="stack tracking-form"
+            onSubmit={(event) => {
+              event.preventDefault()
+              action(
+                `/api/challenges/${id}/entries`,
+                'PUT',
+                { attempt_id: attempt.id, ...day },
+                () => setDay(null),
+              )
+            }}
+          >
+            <div className="tracking-status-picker">
+              {['success', 'failed', 'unset'].map((status) => (
+                <button
+                  type="button"
+                  key={status}
+                  className={`${status} ${day.status === status ? 'selected' : ''}`}
+                  aria-pressed={day.status === status}
+                  onClick={() => setDay((old) => ({ ...old, status }))}
+                >
+                  {status === 'success' ? '✓ ' : status === 'failed' ? '− ' : ''}
+                  {statusText(status)}
+                </button>
+              ))}
+            </div>
+            <label className="field">
+              {t('Заметка к дню', 'A note for this day')}
+              <textarea
+                className="input"
+                rows={4}
+                maxLength={2000}
+                value={day.note}
+                onChange={(event) => setDay((old) => ({ ...old, note: event.target.value }))}
+                placeholder={t(
+                  'Что помогло? Что попробуете завтра?',
+                  'What helped? What will you try tomorrow?',
+                )}
+              />
+            </label>
+            <p className="muted tracking-caption">
+              {t(
+                '«Без отметки» отменяет результат и сохраняет заметку.',
+                '“Not marked” clears the result and keeps your note.',
+              )}
+            </p>
+            <div className="tracking-dialog-actions">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setDay(null)}
+                disabled={busy}
+              >
+                {t('Отмена', 'Cancel')}
+              </Button>
+              <Button variant="primary" type="submit" disabled={busy}>
+                {busy ? t('Сохранение…', 'Saving…') : t('Сохранить', 'Save')}
+              </Button>
+            </div>
+          </form>
+        </Dialog>
+      )}
+      {restart && (
+        <Dialog
+          open
+          title={t('Новая попытка', 'A fresh attempt')}
+          onClose={busy ? undefined : () => setRestart(null)}
+        >
+          <form
+            className="stack tracking-form"
+            onSubmit={(event) => {
+              event.preventDefault()
+              action(
+                `/api/challenges/${id}/restart`,
+                'POST',
+                { ...restart, previous_attempt_id: attempts[0].id },
+                (result) => {
+                  setRestart(null)
+                  setData(null)
+                  setAttemptId(String(result.id))
+                },
+              )
+            }}
+          >
+            <p className="muted">
+              {t(
+                'Предыдущие попытки и их история сохранятся. Новая попытка использует часовой пояс из профиля.',
+                'Previous attempts and their history are kept. The new attempt uses the timezone in your profile.',
+              )}
+            </p>
+            <label className="field">
+              {t('Дата начала', 'Start date')}
+              <Input
+                type="date"
+                min="1900-01-01"
+                max="9998-12-31"
+                required
+                value={restart.start_date}
+                onChange={(event) =>
+                  setRestart((old) => ({ ...old, start_date: event.target.value }))
+                }
+              />
+            </label>
+            <label className="field">
+              {t('Длительность, дней', 'Duration, days')}
+              <Input
+                type="number"
+                min={1}
+                max={366}
+                required
+                value={restart.duration}
+                onChange={(event) =>
+                  setRestart((old) => ({ ...old, duration: Number(event.target.value) }))
+                }
+              />
+            </label>
+            <div className="tracking-dialog-actions">
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={busy}
+                onClick={() => setRestart(null)}
+              >
+                {t('Отмена', 'Cancel')}
+              </Button>
+              <Button variant="primary" type="submit" disabled={busy}>
+                {t('Начать попытку', 'Start attempt')}
+              </Button>
+            </div>
+          </form>
+        </Dialog>
+      )}
+      <Dialog
+        open={confirm === 'delete'}
+        title={t('Удалить челлендж?', 'Delete challenge?')}
+        onClose={busy ? undefined : () => setConfirm('')}
+      >
+        <p>
+          {t(
+            'Все попытки, отметки и заметки этого челленджа будут удалены. Это действие нельзя отменить.',
+            'All attempts, check-ins, and notes for this challenge will be deleted. This cannot be undone.',
+          )}
+        </p>
+        <div className="tracking-dialog-actions">
+          <Button variant="secondary" disabled={busy} onClick={() => setConfirm('')}>
+            {t('Отмена', 'Cancel')}
+          </Button>
+          <Button
+            variant="danger"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true)
+              try {
+                await api(`/api/challenges/${id}`, { method: 'DELETE' })
+                refreshProfile?.()
+                router.push('/app/challenges')
+              } catch (err) {
+                notify(trackingErrorMessage(err, t), 'error')
+                setBusy(false)
+              }
+            }}
+          >
+            {t('Удалить навсегда', 'Delete permanently')}
+          </Button>
+        </div>
+      </Dialog>
+    </div>
+  )
 }

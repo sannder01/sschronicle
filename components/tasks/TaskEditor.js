@@ -4,10 +4,155 @@ import { useApp } from '@/components/AppContext'
 import { Button, Dialog, Input } from '@/components/ui'
 import { useTasks } from './TasksContext'
 export default function TaskEditor({ task, onClose }) {
-  const { t,notify }=useApp(),{folders,saveTask,deleteTask}=useTasks()
-  const [draft,setDraft]=useState({...task,title:task.title||'',due_date:task.due_date?.slice(0,10)||'',due_time:task.due_time||'',priority:task.priority||'medium',folder_id:task.folder_id||''}),[busy,setBusy]=useState(false),[error,setError]=useState(''),[confirm,setConfirm]=useState(false)
-  const change=(field,value)=>setDraft(prev=>({...prev,[field]:value}))
-  async function submit(e) { e.preventDefault(); setBusy(true);setError(''); try { await saveTask({...(draft.id?{id:draft.id}:{}),title:draft.title,due_date:draft.due_date||null,due_time:draft.due_time||null,priority:draft.priority,folder_id:draft.folder_id?Number(draft.folder_id):null});notify(t('Задача сохранена','Task saved'));onClose() } catch { setError(t('Не удалось сохранить задачу. Попробуйте ещё раз.','Could not save task. Please try again.')) } finally {setBusy(false)} }
-  async function remove() {setBusy(true);try {await deleteTask(task.id);onClose();notify(t('Задача удалена','Task deleted'))}catch{setError(t('Не удалось удалить задачу','Could not delete task'));setBusy(false)}}
-  return <Dialog open title={task.id?t('Изменить задачу','Edit task'):t('Новая задача','New task')} onClose={()=>!busy&&onClose()}><form onSubmit={submit} className="stack"><label className="field">{t('Название','Title')}<Input autoFocus required maxLength={300} value={draft.title} onChange={e=>change('title',e.target.value)} placeholder={t('Что нужно сделать?','What needs to get done?')}/></label><div className="form-grid"><label className="field">{t('Дата','Date')}<Input type="date" value={draft.due_date} onChange={e=>change('due_date',e.target.value)}/></label><label className="field">{t('Время','Time')}<Input type="time" value={draft.due_time} disabled={!draft.due_date} onChange={e=>change('due_time',e.target.value)}/></label></div><label className="field">{t('Приоритет','Priority')}<select className="input" value={draft.priority} onChange={e=>change('priority',e.target.value)}><option value="low">{t('Низкий','Low')}</option><option value="medium">{t('Обычный','Medium')}</option><option value="high">{t('Высокий','High')}</option></select></label><label className="field">{t('Папка','Folder')}<select className="input" value={draft.folder_id} onChange={e=>change('folder_id',e.target.value)}><option value="">{t('Без папки','No folder')}</option>{folders.map(f=><option key={f.id} value={f.id}>{f.name}</option>)}</select></label>{error&&<p className="form-error" role="alert">{error}</p>}<div className="dialog-actions">{task.id&&<Button variant="danger" disabled={busy} onClick={()=>setConfirm(true)}>{t('Удалить','Delete')}</Button>}<Button disabled={busy} onClick={onClose}>{t('Отмена','Cancel')}</Button><Button type="submit" variant="primary" disabled={busy||!draft.title.trim()}>{busy?t('Сохранение…','Saving…'):t('Сохранить','Save')}</Button></div>{confirm&&<div className="delete-confirm" role="alert"><p>{t('Удалить задачу без возможности восстановления?','Permanently delete this task?')}</p><div className="row"><Button disabled={busy} onClick={()=>setConfirm(false)}>{t('Оставить','Keep')}</Button><Button variant="danger" disabled={busy} onClick={remove}>{t('Да, удалить','Yes, delete')}</Button></div></div>}</form></Dialog>
+  const { t, notify } = useApp(),
+    { folders, saveTask, deleteTask } = useTasks()
+  const [draft, setDraft] = useState({
+      ...task,
+      title: task.title || '',
+      due_date: task.due_date?.slice(0, 10) || '',
+      due_time: task.due_time || '',
+      priority: task.priority || 'medium',
+      folder_id: task.folder_id || '',
+    }),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState(''),
+    [confirm, setConfirm] = useState(false)
+  const change = (field, value) => setDraft((prev) => ({ ...prev, [field]: value }))
+  async function submit(e) {
+    e.preventDefault()
+    setBusy(true)
+    setError('')
+    try {
+      await saveTask({
+        ...(draft.id ? { id: draft.id } : {}),
+        title: draft.title,
+        due_date: draft.due_date || null,
+        due_time: draft.due_date ? draft.due_time || null : null,
+        priority: draft.priority,
+        folder_id: draft.folder_id ? Number(draft.folder_id) : null,
+      })
+      notify(t('Задача сохранена', 'Task saved'))
+      onClose()
+    } catch {
+      setError(
+        t(
+          'Не удалось сохранить задачу. Попробуйте ещё раз.',
+          'Could not save task. Please try again.',
+        ),
+      )
+    } finally {
+      setBusy(false)
+    }
+  }
+  async function remove() {
+    setBusy(true)
+    try {
+      await deleteTask(task.id)
+      onClose()
+      notify(t('Задача удалена', 'Task deleted'))
+    } catch {
+      setError(t('Не удалось удалить задачу', 'Could not delete task'))
+      setBusy(false)
+    }
+  }
+  return (
+    <Dialog
+      open
+      title={task.id ? t('Изменить задачу', 'Edit task') : t('Новая задача', 'New task')}
+      onClose={() => !busy && onClose()}
+    >
+      <form onSubmit={submit} className="stack">
+        <label className="field">
+          {t('Название', 'Title')}
+          <Input
+            autoFocus
+            required
+            maxLength={300}
+            value={draft.title}
+            onChange={(e) => change('title', e.target.value)}
+            placeholder={t('Что нужно сделать?', 'What needs to get done?')}
+          />
+        </label>
+        <div className="form-grid">
+          <label className="field">
+            {t('Дата', 'Date')}
+            <Input
+              type="date"
+              value={draft.due_date}
+              onChange={(e) => change('due_date', e.target.value)}
+            />
+          </label>
+          <label className="field">
+            {t('Время', 'Time')}
+            <Input
+              type="time"
+              value={draft.due_time}
+              disabled={!draft.due_date}
+              onChange={(e) => change('due_time', e.target.value)}
+            />
+          </label>
+        </div>
+        <label className="field">
+          {t('Приоритет', 'Priority')}
+          <select
+            className="input"
+            value={draft.priority}
+            onChange={(e) => change('priority', e.target.value)}
+          >
+            <option value="low">{t('Низкий', 'Low')}</option>
+            <option value="medium">{t('Обычный', 'Medium')}</option>
+            <option value="high">{t('Высокий', 'High')}</option>
+          </select>
+        </label>
+        <label className="field">
+          {t('Папка', 'Folder')}
+          <select
+            className="input"
+            value={draft.folder_id}
+            onChange={(e) => change('folder_id', e.target.value)}
+          >
+            <option value="">{t('Без папки', 'No folder')}</option>
+            {folders.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        {error && (
+          <p className="form-error" role="alert">
+            {error}
+          </p>
+        )}
+        <div className="dialog-actions">
+          {task.id && (
+            <Button variant="danger" disabled={busy} onClick={() => setConfirm(true)}>
+              {t('Удалить', 'Delete')}
+            </Button>
+          )}
+          <Button disabled={busy} onClick={onClose}>
+            {t('Отмена', 'Cancel')}
+          </Button>
+          <Button type="submit" variant="primary" disabled={busy || !draft.title.trim()}>
+            {busy ? t('Сохранение…', 'Saving…') : t('Сохранить', 'Save')}
+          </Button>
+        </div>
+        {confirm && (
+          <div className="delete-confirm" role="alert">
+            <p>
+              {t('Удалить задачу без возможности восстановления?', 'Permanently delete this task?')}
+            </p>
+            <div className="row">
+              <Button disabled={busy} onClick={() => setConfirm(false)}>
+                {t('Оставить', 'Keep')}
+              </Button>
+              <Button variant="danger" disabled={busy} onClick={remove}>
+                {t('Да, удалить', 'Yes, delete')}
+              </Button>
+            </div>
+          </div>
+        )}
+      </form>
+    </Dialog>
+  )
 }
