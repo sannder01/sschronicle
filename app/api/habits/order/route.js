@@ -1,25 +1,17 @@
-// app/api/habits/order/route.js
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { query } from '@/lib/db'
+import { json, readJson } from '@/lib/api';
+import { transaction } from '@/lib/db';
+import { trackingRoute } from '@/lib/tracking-server';
+import { trackingId, TrackingError } from '@/lib/tracking-validation';
 
-export async function PATCH(req) {
-  const session = await getServerSession(authOptions)
-  if (!session?.user?.id) return Response.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const { ids } = await req.json()
-  if (!Array.isArray(ids) || ids.length === 0)
-    return Response.json({ error: 'ids must be a non-empty array' }, { status: 400 })
-
-  // Update sort_order for each habit, verifying ownership via user_id
-  await Promise.all(
-    ids.map((id, index) =>
-      query(
-        'UPDATE habits SET sort_order = $1 WHERE id = $2 AND user_id = $3',
-        [index, id, session.user.id]
-      )
-    )
-  )
-
-  return Response.json({ ok: true })
-}
+export const PATCH = trackingRoute(async (req, _context, { user }) => {
+  const { ids } = await readJson(req);
+  if (!Array.isArray(ids) || !ids.length || ids.length > 5000) throw new TrackingError('Invalid order');
+  ids.forEach(trackingId);
+  if (new Set(ids).size !== ids.length) throw new TrackingError('Duplicate identifiers');
+  await transaction(async client => {
+    const own = (await client.query('SELECT id FROM habits WHERE user_id=$1 ORDER BY id FOR UPDATE', [user.id])).rows.map(row => row.id);
+    if (ids.length !== own.length || ids.some(id => !own.includes(id))) throw new TrackingError('The list changed. Refresh before reordering.', 409);
+    await client.query('UPDATE habits h SET sort_order=s.position-1,updated_at=now() FROM unnest($2::int[]) WITH ORDINALITY AS s(id,position) WHERE h.id=s.id AND h.user_id=$1', [user.id, ids]);
+  });
+  return json({ ok: true });
+});

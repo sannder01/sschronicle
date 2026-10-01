@@ -1,34 +1,24 @@
-// app/api/habits/[id]/route.js
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { query } from '@/lib/db'
+import { json, readJson } from '@/lib/api';
+import { transaction } from '@/lib/db';
+import { trackingRoute } from '@/lib/tracking-server';
+import { habitInput, trackingId, TrackingError } from '@/lib/tracking-validation';
 
-export async function PATCH(req, { params }) {
-  const session = await getServerSession(authOptions)
-  if (!session?.user?.id) return Response.json({ error:'Unauthorized' }, { status:401 })
-
-  const { id } = await params
-  const { name, description, frequency, days, color } = await req.json()
-
-  const daysValue = frequency === 'custom' && Array.isArray(days)
-    ? JSON.stringify(days)
-    : null
-
-  const result = await query(
-    'UPDATE habits SET name=$1, description=$2, frequency=$3, days=$4::jsonb, color=$5 WHERE id=$6 AND user_id=$7 RETURNING *',
-    [name, description||null, frequency||'daily', daysValue, color||'#8B5CF6', id, session.user.id]
-  )
-
-  if (!result.rows.length) return Response.json({ error:'Not found' }, { status:404 })
-  return Response.json(result.rows[0])
-}
-
-export async function DELETE(req, { params }) {
-  const session = await getServerSession(authOptions)
-  if (!session?.user?.id) return Response.json({ error:'Unauthorized' }, { status:401 })
-
-  const { id } = await params
-  await query('DELETE FROM habit_logs WHERE habit_id = $1', [id])
-  await query('DELETE FROM habits WHERE id = $1 AND user_id = $2', [id, session.user.id])
-  return Response.json({ ok:true })
-}
+export const PATCH = trackingRoute(async (req, { params }, { user }) => {
+  const form = habitInput(await readJson(req));
+  const result = await transaction(async client => {
+    const existing = await client.query('SELECT id FROM habits WHERE id=$1 AND user_id=$2 FOR UPDATE', [trackingId(params.id), user.id]);
+    if (!existing.rowCount) throw new TrackingError('Habit not found', 404);
+    return (await client.query('UPDATE habits SET name=$3,description=$4,frequency=$5,days=$6::jsonb,color=$7,updated_at=now() WHERE id=$1 AND user_id=$2 RETURNING id', [trackingId(params.id), user.id, form.name, form.description, form.frequency, JSON.stringify(form.days), form.color])).rows[0];
+  });
+  return json(result);
+});
+export const DELETE = trackingRoute(async (_req, { params }, { user }) => {
+  const id = trackingId(params.id);
+  await transaction(async client => {
+    const existing = await client.query('SELECT id FROM habits WHERE id=$1 AND user_id=$2 FOR UPDATE', [id, user.id]);
+    if (!existing.rowCount) throw new TrackingError('Habit not found', 404);
+    await client.query('DELETE FROM habit_logs WHERE habit_id=$1 AND user_id=$2', [id, user.id]);
+    await client.query('DELETE FROM habits WHERE id=$1 AND user_id=$2', [id, user.id]);
+  });
+  return json({ ok: true });
+});
