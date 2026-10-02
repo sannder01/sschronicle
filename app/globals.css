@@ -846,6 +846,79 @@ small {
   border-color: var(--accent);
   color: white;
 }
+.task-row.is-celebrating {
+  border-radius: 12px;
+  animation: task-finish-glow 560ms ease-out both;
+}
+.task-row.is-celebrating .task-title {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+.task-checkmark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+}
+.task-check.celebrating {
+  animation: task-check-pop 560ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+}
+.task-check.celebrating::before {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  pointer-events: none;
+  animation: task-check-ring 560ms ease-out both;
+}
+.task-check.celebrating .task-checkmark {
+  animation: task-checkmark-enter 350ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+}
+.task-sparkles {
+  position: absolute;
+  inset: -17px;
+  border-radius: 50%;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 1px, var(--accent) 0 2px, transparent 3px),
+    radial-gradient(circle at 99% 50%, var(--accent) 0 2px, transparent 3px),
+    radial-gradient(circle at 50% 99%, var(--accent) 0 2px, transparent 3px),
+    radial-gradient(circle at 1px 50%, var(--accent) 0 2px, transparent 3px),
+    radial-gradient(circle at 85% 15%, var(--yellow) 0 2px, transparent 3px),
+    radial-gradient(circle at 15% 85%, var(--yellow) 0 2px, transparent 3px);
+  animation: task-sparkles-burst 560ms ease-out both;
+}
+@keyframes task-finish-glow {
+  35% {
+    background: var(--accent-soft);
+    box-shadow: 0 0 0 8px var(--accent-soft);
+  }
+  100% {
+    background: transparent;
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+@keyframes task-check-pop {
+  0% { transform: scale(0.72); }
+  40% { transform: scale(1.22); }
+  70% { transform: scale(0.94); }
+  100% { transform: scale(1); }
+}
+@keyframes task-check-ring {
+  0% { opacity: 0.7; transform: scale(0.65); }
+  100% { opacity: 0; transform: scale(1.55); }
+}
+@keyframes task-checkmark-enter {
+  from { opacity: 0; transform: scale(0.3) rotate(-20deg); }
+  to { opacity: 1; transform: scale(1) rotate(0); }
+}
+@keyframes task-sparkles-burst {
+  0% { opacity: 0; transform: scale(0.5) rotate(-12deg); }
+  35% { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.4) rotate(12deg); }
+}
 .task-content {
   flex: 1;
   min-width: 0;

@@ -37,12 +37,15 @@ export function TasksProvider({ children }) {
       window.removeEventListener('focus', focus)
     }
   }, [reload])
-  async function saveTask(task) {
+  async function saveTask(task, revealAfter) {
     const { id, ...body } = task
-    const result = await api(id ? `/api/tasks/${id}` : '/api/tasks', {
+    const request = api(id ? `/api/tasks/${id}` : '/api/tasks', {
       method: id ? 'PATCH' : 'POST',
       body,
     })
+    const result = revealAfter
+      ? (await Promise.all([request, revealAfter]))[0]
+      : await request
     generation.current++
     setTasks((items) =>
       id ? items.map((item) => (item.id === id ? result : item)) : [result, ...items],
