@@ -50,7 +50,12 @@ export default function TasksPage() {
   const overdue = visible.filter(
       (x) => !x.completed && x.due_date && x.due_date.slice(0, 10) < today,
     ),
-    regular = visible.filter((x) => !overdue.includes(x))
+    regular = visible
+      .filter((x) => !overdue.includes(x))
+      .sort(
+        (a, b) =>
+          (b.created_at || '').localeCompare(a.created_at || '') || Number(b.id) - Number(a.id),
+      )
   async function submitFolder(e) {
     e.preventDefault()
     setFolderBusy(true)
@@ -221,17 +226,6 @@ export default function TasksPage() {
             </EmptyState>
           ) : (
             <>
-              {overdue.length > 0 && (
-                <>
-                  <div className="list-group-label danger-text">
-                    {t('Требуют внимания', 'Needs attention')}
-                    <span>{overdue.length}</span>
-                  </div>
-                  {overdue.map((task) => (
-                    <TaskRow key={task.id} task={task} onEdit={setEditing} />
-                  ))}
-                </>
-              )}
               {regular.length > 0 && (
                 <>
                   <div className="list-group-label">
@@ -243,6 +237,17 @@ export default function TasksPage() {
                     <span>{regular.length}</span>
                   </div>
                   {regular.map((task) => (
+                    <TaskRow key={task.id} task={task} onEdit={setEditing} />
+                  ))}
+                </>
+              )}
+              {overdue.length > 0 && (
+                <>
+                  <div className="list-group-label danger-text">
+                    {t('Требуют внимания', 'Needs attention')}
+                    <span>{overdue.length}</span>
+                  </div>
+                  {overdue.map((task) => (
                     <TaskRow key={task.id} task={task} onEdit={setEditing} />
                   ))}
                 </>
