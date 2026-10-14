@@ -80,6 +80,11 @@
 .diary-writing { margin-bottom: 34px; }
 .diary-writing textarea { display: block; width: 100%; min-height: 280px; overflow: hidden; resize: none; border: none; border-radius: 0; background-color: transparent; color: var(--diary-ink); font-family: Georgia, 'Times New Roman', serif; font-size: 17px; line-height: 32px; padding: 8px 0 0; margin-top: 10px; }
 .diary-writing textarea::placeholder { color: var(--diary-soft-text); opacity: 0.65; }
+.diary-writing textarea:focus-visible,
+.diary-card textarea:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
 .diary-paper-ruled .diary-writing textarea { background-image: linear-gradient(to bottom, transparent 31px, var(--diary-line) 31px); background-size: 100% 32px; background-position: 0 8px; }
 .diary-paper-grid { background-image: linear-gradient(var(--diary-line) 1px, transparent 1px), linear-gradient(90deg, var(--diary-line) 1px, transparent 1px); background-size: 24px 24px; }
 .diary-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
