@@ -12,6 +12,7 @@ const navigation = [
   ['challenges', 'Челленджи', 'Challenges'],
   ['calendar', 'Календарь', 'Calendar'],
   ['notes', 'Заметки', 'Notes'],
+  ['diary', 'Дневник', 'Diary'],
   ['progress', 'Мой прогресс', 'My progress'],
   ['profile', 'Личный кабинет', 'Profile'],
 ]
@@ -67,9 +68,9 @@ export default function AppShell({ children }) {
         </Link>
         <div className="sidebar-caption">{t('ВАШЕ ПРОСТРАНСТВО', 'YOUR SPACE')}</div>
         <nav aria-label={t('Основная навигация', 'Main navigation')}>
-          {navigation.slice(0, 5).map((item) => navLink(item))}
+          {navigation.slice(0, 6).map((item) => navLink(item))}
           <div className="nav-divider" />
-          {navigation.slice(5).map((item) => navLink(item))}
+          {navigation.slice(6).map((item) => navLink(item))}
         </nav>
         <div className="sidebar-bottom">
           <div className="sidebar-note">
@@ -119,7 +120,7 @@ export default function AppShell({ children }) {
         {[navigation[0], navigation[1], navigation[4]].map((item) => navLink(item, true))}
         <Button
           variant="ghost"
-          className={`nav-link ${['challenges', 'calendar', 'progress', 'profile'].some(active) ? 'active' : ''}`}
+          className={`nav-link ${['challenges', 'calendar', 'diary', 'progress', 'profile'].some(active) ? 'active' : ''}`}
           onClick={() => setMore(true)}
           aria-expanded={more}
         >
@@ -141,3 +142,4 @@ export default function AppShell({ children }) {
     </div>
   )
 }
+

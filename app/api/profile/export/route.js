@@ -20,6 +20,7 @@ export const GET = api(async (req, context, { user }) => {
       'tasks',
       'folders',
       'notes',
+      'diary_entries',
       'habits',
       'habit_logs',
       'challenges',
@@ -55,3 +56,4 @@ export const GET = api(async (req, context, { user }) => {
     },
   })
 })
+

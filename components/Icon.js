@@ -1,4 +1,9 @@
 const paths = {
+  diary: (
+    <>
+      <path d="M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5V3ZM7 3v18M3 7h4M3 12h4M3 17h4M11 8h6M11 12h6M11 16h3" />
+    </>
+  ),
   tasks: (
     <>
       <rect x="4" y="3" width="16" height="18" rx="3" />
@@ -107,3 +112,4 @@ export default function Icon({ name = 'tasks', size = 20, ...props }) {
     </svg>
   )
 }
+
