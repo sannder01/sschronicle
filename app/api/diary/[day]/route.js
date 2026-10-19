@@ -1,6 +1,6 @@
 import { api, json, readJson, ApiError } from '@/lib/api'
 import { query } from '@/lib/db'
-import { emptyDiary, validDiaryDate, validateDiary } from '@/lib/diary/format.mjs'
+import { DIARY_BODY_BYTES, emptyDiary, validDiaryDate, validateDiary } from '@/lib/diary/format.mjs'
 
 function date(day) {
   if (!validDiaryDate(day)) throw new ApiError(400, 'Invalid diary date', 'INVALID_DATE')
@@ -16,7 +16,7 @@ export const GET = api(async (_req, { params }, { user }) => {
 
 export const PUT = api(async (req, { params }, { user }) => {
   const day = date(params.day)
-  const body = await readJson(req, 1000000)
+  const body = await readJson(req, DIARY_BODY_BYTES)
   if (!Number.isSafeInteger(body.version) || body.version < 0 || body.version >= 2147483647)
     throw new ApiError(400, 'A diary version is required', 'VERSION_REQUIRED')
   let document

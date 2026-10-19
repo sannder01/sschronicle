@@ -10,6 +10,7 @@ import { addDays, displayDate, todayInZone } from '@/lib/dates'
 import { CARD_COLORS, LIMITS, MOODS, PAPERS, validDiaryDate } from '@/lib/diary/format.mjs'
 import { DiaryWriter } from '@/lib/diary/autosave.mjs'
 import DiaryDrawing from './DiaryDrawing'
+import DiaryPhotos from './DiaryPhotos'
 import './diary.css'
 
 const moodSymbols = ['☀', '☁', '✧', '☾']
@@ -133,6 +134,17 @@ function DiaryEntry({ day, userId, language, t, onSaved }) {
           </div>
         </section>
         <DiaryDrawing strokes={doc.strokes} onChange={(strokes) => update({ strokes })} t={t} />
+        <DiaryPhotos photos={doc.photos || []} t={t} onAdd={(photo) => {
+          const current = writer.current
+          if (!current) return false
+          const photos = current.document.photos || []
+          if (photos.length >= LIMITS.photos) return false
+          current.update({ photos: [...photos, photo] })
+          return true
+        }} onRemove={(id) => {
+          const current = writer.current
+          if (current) current.update({ photos: (current.document.photos || []).filter((photo) => photo.id !== id) })
+        }} />
         <footer className="diary-sheet-footer"><span>CHRONICLE / {t('ЛИЧНОЕ', 'PERSONAL')}</span><span>{t('В своём ритме.', 'At your own pace.')}</span></footer>
       </article>
     </div>
