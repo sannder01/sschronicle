@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { emptyDiary, validateDiary, validDiaryDate, LIMITS } from '../lib/diary/format.mjs'
+import { emptyDiary, validateDiary, validDiaryDate, LIMITS, DIARY_BODY_BYTES, PHOTO_PREFIX } from '../lib/diary/format.mjs'
 import { DiaryWriter } from '../lib/diary/autosave.mjs'
 
 const memory = () => {
@@ -9,6 +9,55 @@ const memory = () => {
 }
 const entry = (document = emptyDiary(), version = 0) => ({ entry_date: '2026-10-15', version, document })
 const writerFor = (options = {}) => new DiaryWriter({ entry: entry(), userId: 'a', storage: memory(), delay: 60000, request: async ({ document, version }) => entry(document, version + 1), ...options })
+const photo = (id = 'photo-1', size = 12) => {
+  const bytes = Buffer.alloc(size)
+  bytes.set([0xff, 0xd8, 0xff, 0xe0])
+  return { id, name: 'memory.jpg', src: PHOTO_PREFIX + bytes.toString('base64'), width: 800, height: 600 }
+}
+
+test('photos normalize old documents and reject unsafe sources, shapes, duplicates and oversized images', () => {
+  const old = emptyDiary()
+  delete old.photos
+  assert.deepEqual(validateDiary(old).photos, [])
+  assert.deepEqual(validateDiary({ ...emptyDiary(), photos: [{ ...photo(), unknown: 'ignored' }] }).photos, [photo()])
+  for (const patch of [
+    { src: 'https://example.test/image.jpg' }, { src: 'data:image/svg+xml;base64,PHN2Zz4=' },
+    { src: PHOTO_PREFIX + 'AAAA' }, { src: PHOTO_PREFIX + '/9j/===' },
+    { src: photo('large', LIMITS.photoBytes + 1).src }, { width: 0 }, { height: 1601 },
+    { width: 0.5 }, { name: 'a'.repeat(LIMITS.photoName + 1) }, { id: '<img>' },
+  ]) assert.throws(() => validateDiary({ ...emptyDiary(), photos: [{ ...photo(), ...patch }] }))
+  for (const photos of [null, {}, [photo(), photo()], Array.from({ length: LIMITS.photos + 1 }, (_, i) => photo(`p${i}`))]) {
+    assert.throws(() => validateDiary({ ...emptyDiary(), photos }))
+  }
+  assert.throws(() => validateDiary({ ...emptyDiary(), photos: [photo('same')], cards: [{ id: 'same', color: 'sand', text: '' }] }))
+})
+
+test('a fully populated diary including six photos fits the bounded API request', () => {
+  const document = {
+    ...emptyDiary(), text: '\u0000'.repeat(LIMITS.text),
+    cards: Array.from({ length: LIMITS.cards }, (_, i) => ({ id: `c${i}`, text: '\u0000'.repeat(LIMITS.cardText), color: 'sage' })),
+    strokes: Array.from({ length: 10 }, (_, i) => ({ id: `s${i}`, color: 'ink', width: 7, points: Array.from({ length: 2000 }, () => [0.12345, 0.98765]) })),
+    photos: Array.from({ length: LIMITS.photos }, (_, i) => photo(`p${i}`, LIMITS.photoBytes)),
+  }
+  assert.ok(Buffer.byteLength(JSON.stringify({ version: 1, document: validateDiary(document) })) < DIARY_BODY_BYTES)
+})
+
+test('photo drafts survive failure, recovery and explicit conflict resolution', async () => {
+  const storage = memory()
+  const writer = writerFor({ storage, request: async () => { throw new Error('offline') } })
+  writer.update({ photos: [photo()] })
+  await writer.flush()
+  await writer.dispose()
+  const restored = writerFor({ storage })
+  assert.equal(restored.status, 'recovered')
+  assert.deepEqual(restored.document.photos, [photo()])
+  await restored.resolve('local')
+  assert.deepEqual(restored.entry.document.photos, [photo()])
+  restored.update({ photos: [] })
+  await restored.flush()
+  assert.deepEqual(restored.entry.document.photos, [])
+  await restored.dispose()
+})
 
 test('diary dates remain real calendar dates within PostgreSQL bounds', () => {
   for (const day of ['2024-02-29', '0001-01-01', '9999-12-31']) assert.equal(validDiaryDate(day), true)

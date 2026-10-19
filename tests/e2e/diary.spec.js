@@ -1,6 +1,75 @@
 import { test, expect } from '@playwright/test'
 import { call, client, login } from './helpers'
 import { emptyDiary } from '../../lib/diary/format.mjs'
+import sharp from 'sharp'
+import { randomBytes } from 'node:crypto'
+
+const imageFile = async (name = 'memory.png') => ({ name, mimeType: 'image/png', buffer: await sharp({ create: { width: 2200, height: 1400, channels: 3, background: '#718b6a' } }).png().toBuffer() })
+
+test('diary photos resize, autosave, export, remain private, preview and delete across reloads', async ({ page, context, playwright }) => {
+  const errors = []
+  page.on('pageerror', (error) => errors.push(error.message))
+  await login(context)
+  const a = await client(playwright), b = await client(playwright, 'b')
+  await call(a, '/api/profile', 'PATCH', { settings: { theme: 'light', language: 'ru' } })
+  const path = '/api/diary/2091-03-15'
+  await page.goto('/app/diary?day=2091-03-15')
+  const input = page.getByLabel('Выбрать фотографии', { exact: true })
+  const photoError = page.getByRole('region', { name: 'Фотографии дня', exact: true }).getByRole('alert')
+  const file = await imageFile()
+  const noisy = { name: 'second.webp', mimeType: 'image/webp', buffer: await sharp(randomBytes(1800 * 1200 * 3), { raw: { width: 1800, height: 1200, channels: 3 } }).webp({ quality: 90 }).toBuffer() }
+  await input.setInputFiles([file, noisy])
+  await expect(page.locator('.diary-photo')).toHaveCount(2)
+  await expect(page.locator('.diary-save-state')).toHaveText('Все изменения сохранены')
+  const saved = await call(a, path)
+  expect(saved.document.photos).toHaveLength(2)
+  expect(saved.document.photos[0].src).toMatch(/^data:image\/jpeg;base64,/)
+  expect(saved.document.photos[0].width).toBeLessThanOrEqual(1600)
+  expect(saved.document.photos[1].width).toBeLessThan(1600)
+  expect(Buffer.from(saved.document.photos[0].src.split(',')[1], 'base64').length).toBeLessThanOrEqual(98304)
+  expect((await call(b, path)).document.photos).toEqual([])
+  expect((await call(a, '/api/profile/export')).diary_entries.find((row) => row.entry_date === '2091-03-15').document.photos).toEqual(saved.document.photos)
+  for (const src of ['https://example.test/a.jpg', 'data:image/svg+xml;base64,PHN2Zz4=']) {
+    await call(a, path, 'PUT', { version: saved.version, document: { ...saved.document, photos: [{ ...saved.document.photos[0], src }] } }, 400)
+  }
+  for (const theme of ['light', 'dark']) {
+    await call(a, '/api/profile', 'PATCH', { settings: { theme } })
+    for (const width of [390, 768, 1440]) {
+      await page.setViewportSize({ width, height: 950 })
+      await page.reload()
+      await expect(page.locator('.diary-photo')).toHaveCount(2)
+      await expect.poll(() => page.locator('.diary-photo img').first().evaluate((img) => img.complete && img.naturalWidth > 0)).toBe(true)
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width + 1)
+      await page.getByRole('button', { name: 'Открыть фото 1', exact: true }).click()
+      await expect(page.getByRole('dialog')).toBeVisible()
+      await page.keyboard.press('Escape')
+      await expect(page.getByRole('dialog')).not.toBeVisible()
+      await page.screenshot({ path: `test-results/diary-photos-${width}-${theme}.png`, fullPage: true })
+    }
+  }
+  await input.setInputFiles({ name: 'wrong.txt', mimeType: 'text/plain', buffer: Buffer.from('not a photo') })
+  await expect(photoError).toContainText('JPEG, PNG и WebP')
+  await input.setInputFiles({ name: 'broken.png', mimeType: 'image/png', buffer: Buffer.from('not a photo') })
+  await expect(photoError).toContainText('не удалось прочитать')
+  await expect(page.locator('.diary-photo')).toHaveCount(2)
+  await input.setInputFiles(Array.from({ length: 5 }, (_, i) => ({ ...file, name: `too-many-${i}.png` })))
+  await expect(photoError).toContainText('до 6 фотографий')
+  await input.setInputFiles(Array.from({ length: 4 }, (_, i) => ({ ...file, name: `extra-${i}.png` })))
+  await expect(page.locator('.diary-photo')).toHaveCount(6)
+  await expect(page.getByRole('button', { name: 'Добавить фото', exact: true })).toBeDisabled()
+  await page.getByRole('button', { name: 'Удалить фото 1', exact: true }).click()
+  await expect(page.locator('.diary-photo')).toHaveCount(5)
+  // The same file can be selected again after a batch finishes.
+  await input.setInputFiles(file)
+  await expect(page.locator('.diary-photo')).toHaveCount(6)
+  for (let i = 0; i < 6; i++) await page.getByRole('button', { name: 'Удалить фото 1', exact: true }).click()
+  await expect(page.locator('.diary-save-state')).toHaveText('Все изменения сохранены')
+  await page.reload()
+  await expect(page.locator('.diary-photo')).toHaveCount(0)
+  expect((await call(a, path)).document.photos).toEqual([])
+  expect(errors).toEqual([])
+  await a.dispose(); await b.dispose()
+})
 
 test('diary API enforces authentication, ownership, calendar dates and atomic versions', async ({ playwright, request }) => {
   expect((await request.get('/api/diary')).status()).toBe(401)
