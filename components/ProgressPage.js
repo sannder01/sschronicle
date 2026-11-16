@@ -108,8 +108,8 @@ export default function ProgressPage() {
         </p>
         <p>
           {t(
-            'Баллы отражают сохранённые результаты. Отмена отметки или удаление записи уменьшает XP. Повторные нажатия не дают дополнительных баллов.',
-            'Points reflect your saved results. Undoing or deleting a record reduces XP. Repeated clicks never award extra points.',
+            'Баллы отражают сохранённые результаты. Отмена отметки или удаление записи уменьшает XP. Повторные нажатия не дают дополнительных баллов, а задачи, созданные сразу выполненными, баллов не приносят.',
+            'Points reflect your saved results. Undoing or deleting a record reduces XP. Repeated clicks never award extra points, and tasks created already completed earn none.',
           )}
         </p>
       </section>

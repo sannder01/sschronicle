@@ -8,6 +8,7 @@ import { api } from '@/lib/client'
 import { displayDate } from '@/lib/dates'
 import { trackingErrorMessage } from '@/lib/tracking-client'
 import ChallengeForm from './ChallengeForm'
+import Icon from '@/components/Icon'
 
 export default function ChallengesPage() {
   const { t, language, notify, refreshProfile } = useApp()
@@ -109,7 +110,8 @@ export default function ChallengesPage() {
           </p>
         </div>
         <Button variant="primary" onClick={() => setForm({})}>
-          + {t('Новый челлендж', 'New challenge')}
+          <Icon name="plus" />
+          {t('Новый челлендж', 'New challenge')}
         </Button>
       </header>
       <div

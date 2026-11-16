@@ -901,23 +901,51 @@ small {
   }
 }
 @keyframes task-check-pop {
-  0% { transform: scale(0.72); }
-  40% { transform: scale(1.22); }
-  70% { transform: scale(0.94); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(0.72);
+  }
+  40% {
+    transform: scale(1.22);
+  }
+  70% {
+    transform: scale(0.94);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 @keyframes task-check-ring {
-  0% { opacity: 0.7; transform: scale(0.65); }
-  100% { opacity: 0; transform: scale(1.55); }
+  0% {
+    opacity: 0.7;
+    transform: scale(0.65);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.55);
+  }
 }
 @keyframes task-checkmark-enter {
-  from { opacity: 0; transform: scale(0.3) rotate(-20deg); }
-  to { opacity: 1; transform: scale(1) rotate(0); }
+  from {
+    opacity: 0;
+    transform: scale(0.3) rotate(-20deg);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) rotate(0);
+  }
 }
 @keyframes task-sparkles-burst {
-  0% { opacity: 0; transform: scale(0.5) rotate(-12deg); }
-  35% { opacity: 1; }
-  100% { opacity: 0; transform: scale(1.4) rotate(12deg); }
+  0% {
+    opacity: 0;
+    transform: scale(0.5) rotate(-12deg);
+  }
+  35% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.4) rotate(12deg);
+  }
 }
 .task-content {
   flex: 1;
@@ -1253,6 +1281,20 @@ small {
   flex-wrap: wrap;
   margin-top: 22px;
 }
+.link-code {
+  display: block;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--surface-strong, rgba(127, 127, 127, 0.12));
+  font:
+    600 22px/1.2 ui-monospace,
+    'SF Mono',
+    Menlo,
+    monospace;
+  letter-spacing: 0.12em;
+  text-align: center;
+  user-select: all;
+}
 .status-badge {
   display: inline-flex;
   align-items: center;
@@ -1298,8 +1340,15 @@ small {
 }
 .progress-track > div {
   height: 100%;
-  background: var(--accent);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 70%, #5ac8fa), var(--accent));
   border-radius: 5px;
+  transform-origin: left center;
+  animation: xp-fill 1.1s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both;
+}
+@keyframes xp-fill {
+  from {
+    transform: scaleX(0);
+  }
 }
 .rank-list {
   display: grid;
@@ -1321,6 +1370,12 @@ small {
 }
 .rank-item.current {
   border-color: var(--accent);
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--accent) 12%, transparent),
+    0 18px 40px -24px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+.rank-item.current strong {
+  color: var(--accent);
 }
 .progress-explanation {
   margin-top: 24px;

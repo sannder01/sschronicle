@@ -7,6 +7,8 @@ import { addDays, displayDate, weekday } from '@/lib/dates'
 import { isScheduled, scheduledDays } from '@/lib/habits'
 import { trackingErrorMessage } from '@/lib/tracking-client'
 import { CHALLENGE_COLORS } from '@/components/challenges/ChallengeForm'
+import Icon from '@/components/Icon'
+import DailyRing from './DailyRing'
 
 function HabitForm({ initial, onClose, onSave, busy }) {
   const { t, language } = useApp()
@@ -307,7 +309,8 @@ export default function HabitsPage() {
           </p>
         </div>
         <Button variant="primary" onClick={() => setForm({})}>
-          + {t('Новая привычка', 'New habit')}
+          <Icon name="plus" />
+          {t('Новая привычка', 'New habit')}
         </Button>
       </header>
       {habits?.length > 0 && (
@@ -328,10 +331,20 @@ export default function HabitsPage() {
               )}
             </p>
           </div>
-          <div className="habit-summary-count">
-            <strong>{done}</strong>
-            <span>/ {scheduled.length}</span>
-          </div>
+          {scheduled.length > 0 ? (
+            <DailyRing
+              habits={scheduled}
+              label={t(
+                `Выполнено ${done} из ${scheduled.length}`,
+                `${done} of ${scheduled.length} done`,
+              )}
+            />
+          ) : (
+            <div className="habit-summary-count">
+              <strong>{done}</strong>
+              <span>/ {scheduled.length}</span>
+            </div>
+          )}
         </section>
       )}
       {error ? (

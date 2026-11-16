@@ -176,7 +176,7 @@ export default function DiaryWorkspace() {
     catch (err) { if (generation.current === current) setError(err) }
     finally { if (generation.current === current) setLoading(false) }
   }, [])
-  useEffect(() => { load(); return () => { generation.current++ } }, [load])
+  useEffect(() => { const counter = generation; load(); return () => { counter.current++ } }, [load])
   const saved = useCallback((entry) => {
     setEntries((rows) => [entry, ...rows.filter((row) => row.entry_date !== entry.entry_date)].sort((a, b) => b.entry_date.localeCompare(a.entry_date)))
   }, [])

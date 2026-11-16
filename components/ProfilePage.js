@@ -396,6 +396,7 @@ export default function ProfilePage() {
               </p>
             )}
           </section>
+          <ChatGPTPanel t={t} />
           <section className="panel settings-panel">
             <h2>{t('Вход и безопасность', 'Sign-in & security')}</h2>
             <div className="setting-row">
@@ -515,5 +516,87 @@ export default function ProfilePage() {
         </div>
       </Dialog>
     </div>
+  )
+}
+
+function ChatGPTPanel({ t }) {
+  const [state, setState] = useState(null),
+    [link, setLink] = useState(null),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState('')
+  async function call(method) {
+    setBusy(true)
+    setError('')
+    try {
+      const result = await api('/api/profile/chatgpt', { method })
+      if (method === 'POST') setLink(result)
+      else {
+        setLink(null)
+        setState(result)
+      }
+    } catch {
+      setError(
+        t('Не удалось обновить подключение ChatGPT.', 'Could not update the ChatGPT connection.'),
+      )
+    } finally {
+      setBusy(false)
+    }
+  }
+  useEffect(() => {
+    api('/api/profile/chatgpt')
+      .then(setState)
+      .catch(() => setState({ connected: false }))
+  }, [])
+  return (
+    <section className="panel glass settings-panel">
+      <h2>ChatGPT</h2>
+      <span className={`status-badge ${state?.connected ? 'connected' : ''}`}>
+        {state?.connected ? t('Подключён', 'Connected') : t('Не подключён', 'Not connected')}
+      </span>
+      <p>
+        {t(
+          'Плагин Chronicle в ChatGPT получает доступ к задачам и заметкам только после привязки одноразовым кодом.',
+          'The Chronicle plugin in ChatGPT can reach your tasks and notes only after you link it with a one-time code.',
+        )}
+      </p>
+      {state?.connected ? (
+        <>
+          <div className="setting-row">
+            <span>
+              {t('Аккаунт ChatGPT', 'ChatGPT account')}
+              <small>{state.email}</small>
+            </span>
+          </div>
+          <div className="settings-actions">
+            <Button disabled={busy} onClick={() => call('DELETE')}>
+              {t('Отключить ChatGPT', 'Disconnect ChatGPT')}
+            </Button>
+          </div>
+        </>
+      ) : (
+        <div className="stack">
+          <Button disabled={busy || !state} onClick={() => call('POST')}>
+            {t('Получить код привязки', 'Get a link code')}
+          </Button>
+          {link && (
+            <>
+              <code className="link-code" aria-label={t('Код привязки', 'Link code')}>
+                {link.code}
+              </code>
+              <small className="muted">
+                {t(
+                  'Скажите ChatGPT: «Подключи Chronicle, код …». Код одноразовый и действует 10 минут.',
+                  'Tell ChatGPT: “Connect Chronicle, code …”. The code is single-use and expires in 10 minutes.',
+                )}
+              </small>
+              <Button onClick={() => call('GET')}>
+                {t('Проверить подключение', 'Check connection')}
+              </Button>
+            </>
+          )}
+        </div>
+      )}
+      {error && <p className="form-error">{error}</p>}
+    </section>
   )
 }

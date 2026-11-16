@@ -38,6 +38,9 @@ export const GET = api(async (req, context, { user }) => {
           [user.id],
         )
       ).rows[0] ?? null
+    result.chatgpt =
+      (await client.query('SELECT email,created_at FROM chatgpt_links WHERE user_id=$1', [user.id]))
+        .rows[0] ?? null
     // Removed features remain exportable when historical tables exist.
     for (const table of ['fitness_meals', 'fitness_weight', 'fitness_water', 'fitness_config']) {
       if ((await client.query('SELECT to_regclass($1) AS name', [table])).rows[0].name) {
@@ -56,4 +59,3 @@ export const GET = api(async (req, context, { user }) => {
     },
   })
 })
-
