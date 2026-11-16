@@ -1,6 +1,7 @@
 'use client'
-import { forwardRef, useEffect, useId, useRef } from 'react'
+import { forwardRef, useEffect, useId, useRef, useState } from 'react'
 import Icon from './Icon'
+import { motionReduced } from './motion'
 export const Button = forwardRef(function Button(
   { variant = 'secondary', className = '', children, ...props },
   ref,
@@ -16,11 +17,30 @@ export const Input = forwardRef(function Input({ className = '', ...props }, ref
 })
 export function Dialog({ open, title, onClose, children, className = '' }) {
   const ref = useRef(null),
-    titleId = useId()
+    titleId = useId(),
+    [rendered, setRendered] = useState(open)
   useEffect(() => {
     const dialog = ref.current
-    if (open && !dialog.open) dialog.showModal()
-    if (!open && dialog.open) dialog.close()
+    if (open) {
+      setRendered(true)
+      dialog.classList.remove('closing')
+      if (!dialog.open) dialog.showModal()
+      return
+    }
+    if (!dialog.open) return
+    // Exit along the same path it entered, then really close.
+    if (motionReduced()) {
+      dialog.close()
+      setRendered(false)
+      return
+    }
+    dialog.classList.add('closing')
+    const id = setTimeout(() => {
+      dialog.classList.remove('closing')
+      dialog.close()
+      setRendered(false)
+    }, 200)
+    return () => clearTimeout(id)
   }, [open])
   return (
     <dialog
@@ -47,7 +67,7 @@ export function Dialog({ open, title, onClose, children, className = '' }) {
             <Icon name="close" />
           </Button>
         </header>
-        {open && children}
+        {(open || rendered) && children}
       </div>
     </dialog>
   )

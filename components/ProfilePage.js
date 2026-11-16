@@ -5,6 +5,7 @@ import { useApp } from './AppContext'
 import { Avatar } from './AppShell'
 import { Button, Input, Dialog, LoadingState, ErrorState } from './ui'
 import Icon from './Icon'
+import { ACCENTS } from './accents'
 import { api, clearPrivateCache } from '@/lib/client'
 
 export default function ProfilePage() {
@@ -42,6 +43,18 @@ export default function ProfilePage() {
       setError(t('Не удалось сохранить. Попробуйте ещё раз.', 'Could not save. Please try again.'))
     } finally {
       setBusy(false)
+    }
+  }
+  // Optimistic: the colour changes instantly, the save happens in the background
+  async function pickAccent(accent) {
+    if (!profile || accent === settings.accent) return
+    const previous = profile
+    setProfile({ ...profile, settings: { ...profile.settings, accent } })
+    try {
+      setProfile(await api('/api/profile', { method: 'PATCH', body: { settings: { accent } } }))
+    } catch {
+      setProfile(previous)
+      setError(t('Не удалось сохранить цвет.', 'Could not save the colour.'))
     }
   }
   async function logout() {
@@ -263,6 +276,32 @@ export default function ProfilePage() {
                 <option value="system">{t('Системная', 'System')}</option>
               </select>
             </label>
+            <fieldset className="setting-row accent-row">
+              <legend className="sr-only">{t('Цвет акцента', 'Accent colour')}</legend>
+              <span aria-hidden="true">
+                {t('Цвет акцента', 'Accent colour')}
+                <small>
+                  {t('Кнопки, отметки и выделение', 'Buttons, checkmarks and highlights')}
+                </small>
+              </span>
+              <div className="accent-swatches">
+                {ACCENTS.map(([key, ru, en]) => (
+                  <label key={key} className="accent-swatch" data-accent={key} title={t(ru, en)}>
+                    <input
+                      type="radio"
+                      name="accent"
+                      value={key}
+                      checked={(settings.accent || 'blue') === key}
+                      onChange={() => pickAccent(key)}
+                      aria-label={t(ru, en)}
+                    />
+                    <span className="accent-dot" aria-hidden="true">
+                      <Icon name="check" size={14} />
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
             <label className="setting-row">
               <span>{t('Язык', 'Language')}</span>
               <select

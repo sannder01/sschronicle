@@ -1,5 +1,5 @@
 'use client'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useApp } from '@/components/AppContext'
 import { Button, Dialog, Input, EmptyState, LoadingState, ErrorState } from '@/components/ui'
@@ -8,6 +8,7 @@ import { useTasks } from './TasksContext'
 import TaskEditor from './TaskEditor'
 import TaskRow from './TaskRow'
 import { todayInZone } from '@/lib/dates'
+import { useIndicator } from '@/components/motion'
 export default function TasksPage() {
   const { t, user, settings, language, notify } = useApp(),
     { tasks, folders, loading, error, reload, saveFolder, deleteFolder } = useTasks()
@@ -18,7 +19,9 @@ export default function TasksPage() {
     [folderEdit, setFolderEdit] = useState(null),
     [folderBusy, setFolderBusy] = useState(false),
     [folderError, setFolderError] = useState(''),
-    [deleteConfirm, setDeleteConfirm] = useState(false)
+    [deleteConfirm, setDeleteConfirm] = useState(false),
+    segmentedRef = useRef(null)
+  useIndicator(segmentedRef, '.selected', [filter, loading])
   const today = todayInZone(settings.timezone),
     active = tasks.filter((x) => !x.completed),
     done = tasks.filter((x) => x.completed).length
@@ -168,7 +171,11 @@ export default function TasksPage() {
             </label>
           </div>
           <div className="task-toolbar">
-            <div className="segmented" aria-label={t('Фильтр задач', 'Task filter')}>
+            <div
+              ref={segmentedRef}
+              className="segmented has-indicator"
+              aria-label={t('Фильтр задач', 'Task filter')}
+            >
               {[
                 ['active', 'Активные', 'Active'],
                 ['all', 'Все', 'All'],

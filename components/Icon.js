@@ -17,6 +17,13 @@ const paths = {
     </>
   ),
   challenges: <path d="M6 21V3m0 1c5-4 7 4 13 0v10c-6 4-8-4-13 0" />,
+  schedule: (
+    <>
+      <path d="M4 6h2m-2 6h2m-2 6h2" />
+      <rect x="9" y="3.5" width="11" height="6" rx="2" />
+      <rect x="9" y="12" width="11" height="8.5" rx="2" />
+    </>
+  ),
   calendar: (
     <>
       <rect x="3" y="5" width="18" height="16" rx="3" />
@@ -112,4 +119,3 @@ export default function Icon({ name = 'tasks', size = 20, ...props }) {
     </svg>
   )
 }
-

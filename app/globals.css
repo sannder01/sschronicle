@@ -6,25 +6,105 @@
   --muted: #777981;
   --border: #e7e7ec;
   --accent: #007aff;
-  --accent-soft: #e9f2ff;
   --danger: #cf3838;
-  --shadow:
-    0 1px 2px rgb(16 24 40 / 4%),
-    0 8px 24px rgb(16 24 40 / 4%);
-  --shadow-hover:
-    0 2px 4px rgb(16 24 40 / 5%),
-    0 14px 36px rgb(16 24 40 / 8%);
+  --shadow: 0 1px 2px rgb(16 24 40 / 4%), 0 8px 24px rgb(16 24 40 / 4%);
+  --shadow-hover: 0 2px 4px rgb(16 24 40 / 5%), 0 14px 36px rgb(16 24 40 / 8%);
+  --on-accent: #fff;
   --focus-ring: 0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent);
-  /* critically damped "spring-like" curve, no overshoot */
-  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  /* Springs (Apple-style damping/response), sampled into CSS linear().
+     --spring: damping 1.0 (no overshoot) — default for UI.
+     --spring-bounce: damping 0.78 — only after a gesture with momentum. */
+  --spring: linear(
+    0,
+    0.0238,
+    0.0816,
+    0.1582,
+    0.2431,
+    0.3294,
+    0.4129,
+    0.4909,
+    0.562,
+    0.6256,
+    0.6819,
+    0.731,
+    0.7736,
+    0.8101,
+    0.8412,
+    0.8677,
+    0.89,
+    0.9088,
+    0.9246,
+    0.9377,
+    0.9487,
+    0.9578,
+    0.9653,
+    0.9716,
+    0.9767,
+    0.9809,
+    0.9844,
+    0.9873,
+    0.9896,
+    0.9916,
+    0.9931,
+    0.9944,
+    0.9955,
+    0.9963,
+    0.997,
+    0.9976,
+    1
+  );
+  --spring-bounce: linear(
+    0,
+    0.0219,
+    0.0778,
+    0.1556,
+    0.2455,
+    0.3404,
+    0.4348,
+    0.525,
+    0.6085,
+    0.6837,
+    0.7501,
+    0.8074,
+    0.8559,
+    0.8962,
+    0.929,
+    0.9551,
+    0.9755,
+    0.9909,
+    1.0022,
+    1.0101,
+    1.0153,
+    1.0183,
+    1.0197,
+    1.0199,
+    1.0192,
+    1.0179,
+    1.0162,
+    1.0144,
+    1.0125,
+    1.0106,
+    1.0089,
+    1.0073,
+    1.0058,
+    1.0046,
+    1.0035,
+    1.0026,
+    1
+  );
+  /* fallback alias used by older rules */
+  --ease-spring: var(--spring);
+  --dur-fast: 320ms;
+  --dur: 480ms;
+  --dur-slow: 640ms;
   --radius: 18px;
   --glass: rgba(255, 255, 255, 0.74);
   --glass-border: rgba(255, 255, 255, 0.85);
   --yellow: #ab7800;
   color-scheme: light;
   font-family:
-    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI Variable Text',
-    'Segoe UI', system-ui, sans-serif;
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI Variable Text', 'Segoe UI',
+    system-ui, sans-serif;
   font-optical-sizing: auto;
 }
 :root[data-theme='dark'] {
@@ -35,18 +115,99 @@
   --muted: #aaaab5;
   --border: #35353c;
   --accent: #5ca3ff;
-  --accent-soft: #21344c;
   --danger: #ff7a79;
-  --shadow:
-    0 1px 2px rgb(0 0 0 / 20%),
-    0 8px 24px rgb(0 0 0 / 18%);
-  --shadow-hover:
-    0 2px 4px rgb(0 0 0 / 24%),
-    0 14px 36px rgb(0 0 0 / 30%);
+  --shadow: 0 1px 2px rgb(0 0 0 / 20%), 0 8px 24px rgb(0 0 0 / 18%);
+  --shadow-hover: 0 2px 4px rgb(0 0 0 / 24%), 0 14px 36px rgb(0 0 0 / 30%);
   --glass: rgba(35, 35, 39, 0.78);
   --glass-border: rgba(255, 255, 255, 0.12);
   --yellow: #eec356;
   color-scheme: dark;
+}
+@supports not (transition-timing-function: linear(0, 1)) {
+  :root {
+    --spring: cubic-bezier(0.22, 1, 0.36, 1);
+    --spring-bounce: cubic-bezier(0.34, 1.3, 0.64, 1);
+  }
+}
+
+/* ---------- Accent colour (chosen by the user in Profile) ----------
+   Set on <html> by AppContext and on .app-shell on the server for first paint. */
+[data-accent='blue'] {
+  --accent: #007aff;
+}
+[data-accent='indigo'] {
+  --accent: #5856d6;
+}
+[data-accent='teal'] {
+  --accent: #0e8fa3;
+}
+[data-accent='green'] {
+  --accent: #248a3d;
+}
+[data-accent='orange'] {
+  --accent: #d96c00;
+}
+[data-accent='red'] {
+  --accent: #e0383e;
+}
+[data-accent='pink'] {
+  --accent: #d6336c;
+}
+[data-accent='graphite'] {
+  --accent: #48484e;
+}
+[data-theme='dark'][data-accent='blue'],
+[data-theme='dark'] [data-accent='blue'] {
+  --accent: #5ca3ff;
+}
+[data-theme='dark'][data-accent='indigo'],
+[data-theme='dark'] [data-accent='indigo'] {
+  --accent: #7d7aff;
+}
+[data-theme='dark'][data-accent='teal'],
+[data-theme='dark'] [data-accent='teal'] {
+  --accent: #40c8e0;
+  --on-accent: #0b2a30;
+}
+[data-theme='dark'][data-accent='green'],
+[data-theme='dark'] [data-accent='green'] {
+  --accent: #30d158;
+  --on-accent: #062b12;
+}
+[data-theme='dark'][data-accent='orange'],
+[data-theme='dark'] [data-accent='orange'] {
+  --accent: #ff9f0a;
+  --on-accent: #2e1a00;
+}
+[data-theme='dark'][data-accent='red'],
+[data-theme='dark'] [data-accent='red'] {
+  --accent: #ff6961;
+}
+[data-theme='dark'][data-accent='pink'],
+[data-theme='dark'] [data-accent='pink'] {
+  --accent: #ff6b9d;
+}
+[data-theme='dark'][data-accent='graphite'],
+[data-theme='dark'] [data-accent='graphite'] {
+  --accent: #d1d1d6;
+  --on-accent: #1c1c1e;
+}
+/* derived tokens must be recomputed wherever --accent changes */
+:root,
+[data-accent] {
+  --accent-soft: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  --focus-ring: 0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+[data-theme='dark'],
+[data-theme='dark'] [data-accent] {
+  --accent-soft: color-mix(in srgb, var(--accent) 20%, var(--surface));
+}
+/* smooth cross-fade when the user switches accent or theme */
+.accent-transition,
+.accent-transition * {
+  transition-property: color, background-color, border-color, box-shadow, fill, stroke !important;
+  transition-duration: 420ms !important;
+  transition-timing-function: ease !important;
 }
 * {
   box-sizing: border-box;
@@ -214,7 +375,7 @@ textarea:focus-visible,
   outline-offset: 2px;
 }
 ::selection {
-  background: #77b2ff66;
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
 }
 svg {
   flex-shrink: 0;
@@ -281,7 +442,7 @@ small {
 }
 .button-primary {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 18%),
     0 1px 2px color-mix(in srgb, var(--accent) 30%, transparent),
@@ -524,7 +685,7 @@ small {
   position: absolute;
   width: 5px;
   height: 5px;
-  background: #8bc7ff;
+  background: color-mix(in srgb, var(--accent) 55%, #fff);
   border-radius: 50%;
   right: 5px;
   bottom: 8px;
@@ -740,8 +901,8 @@ small {
   margin-bottom: 14px;
 }
 .blue {
-  background: #edf4ff;
-  color: #448cec;
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 .purple {
   background: #f3eefb;
@@ -896,7 +1057,7 @@ small {
 .task-check.checked {
   background: var(--accent);
   border-color: var(--accent);
-  color: white;
+  color: var(--on-accent);
 }
 .task-row.is-celebrating {
   border-radius: 12px;
@@ -1215,7 +1376,7 @@ small {
 }
 .calendar-day.selected {
   background: var(--accent);
-  color: white;
+  color: var(--on-accent);
 }
 .calendar-dots {
   display: flex;
@@ -2039,5 +2200,316 @@ small {
   }
   .notes-main {
     padding: 0 0 calc(91px + env(safe-area-inset-bottom));
+  }
+}
+
+/* ======================================================================
+   Motion layer — Apple-style springs (see components/motion.js)
+   Rules: respond on press, start from the live value, enter and exit
+   along the same path, bounce only after momentum.
+   ====================================================================== */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Page change: rises in on a critically damped spring */
+.route-transition {
+  animation: route-enter var(--dur) var(--spring) both;
+}
+@keyframes route-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+/* the first cards of a page settle one after another (once, on load) */
+.route-transition .overview-grid > *,
+.route-transition .schedule-summary > * {
+  animation: route-enter var(--dur) var(--spring) both;
+}
+.route-transition .overview-grid > :nth-child(2),
+.route-transition .schedule-summary > :nth-child(2) {
+  animation-delay: 40ms;
+}
+.route-transition .overview-grid > :nth-child(3),
+.route-transition .schedule-summary > :nth-child(3) {
+  animation-delay: 80ms;
+}
+
+/* Sliding selection pill: sidebar + segmented controls */
+.has-indicator {
+  position: relative;
+  isolation: isolate;
+}
+.has-indicator::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: -1;
+  width: var(--iw, 0);
+  height: var(--ih, 0);
+  transform: translate(var(--ix, 0), var(--iy, 0));
+  opacity: var(--io, 0);
+  border-radius: inherit;
+  pointer-events: none;
+}
+.has-indicator.indicator-ready::before {
+  transition:
+    transform var(--dur) var(--spring),
+    width var(--dur) var(--spring),
+    height var(--dur) var(--spring),
+    opacity 200ms ease;
+}
+.sidebar nav.has-indicator::before {
+  border-radius: 11px;
+  background: var(--accent-soft);
+}
+.sidebar nav.has-indicator.indicator-ready .nav-link.active {
+  background: transparent;
+}
+.segmented.has-indicator::before {
+  border-radius: 7px;
+  background: var(--surface);
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 6%),
+    0 2px 8px rgb(0 0 0 / 6%);
+}
+.segmented.has-indicator.indicator-ready button.selected {
+  background: transparent;
+  box-shadow: none;
+}
+.nav-dot {
+  animation: dot-in var(--dur) var(--spring-bounce) both;
+}
+@keyframes dot-in {
+  from {
+    transform: scale(0);
+  }
+}
+
+/* Dialogs: materialize (scale + blur of the backdrop), leave the same way */
+.dialog[open] {
+  animation: dialog-enter var(--dur) var(--spring) both;
+}
+.dialog[open]::backdrop {
+  animation: backdrop-enter 280ms ease both;
+}
+.dialog.closing {
+  animation: dialog-exit 200ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+.dialog.closing::backdrop {
+  animation: backdrop-exit 200ms ease both;
+}
+@keyframes dialog-enter {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes dialog-exit {
+  to {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+}
+@keyframes backdrop-exit {
+  from {
+    background: rgb(0 0 0 / 35%);
+    backdrop-filter: blur(3px);
+  }
+  to {
+    background: rgb(0 0 0 / 0%);
+    backdrop-filter: blur(0);
+  }
+}
+
+/* Toast: rises from the bottom edge, sinks back there */
+.toast {
+  animation: toast-enter var(--dur) var(--spring) both;
+}
+.toast.leaving {
+  animation: toast-exit 240ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+@keyframes toast-enter {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 24px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+@keyframes toast-exit {
+  to {
+    opacity: 0;
+    transform: translate(-50%, 16px) scale(0.96);
+  }
+}
+
+/* New rows slide in where they appear (no scroll-triggered fades) */
+.task-row,
+.habit-card,
+.note-card {
+  transition:
+    opacity 260ms ease,
+    transform var(--dur) var(--spring),
+    background-color 180ms ease;
+}
+@starting-style {
+  .task-row,
+  .habit-card,
+  .note-card {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+/* Checkbox: tap reward with a small bounce */
+.task-check {
+  transition:
+    background-color 200ms ease,
+    border-color 200ms ease,
+    transform 320ms var(--spring-bounce);
+}
+.task-check:not(:disabled):active {
+  transform: scale(0.86);
+  transition-duration: 80ms;
+}
+input[type='checkbox'] {
+  transition: transform 320ms var(--spring-bounce);
+}
+input[type='checkbox']:active {
+  transform: scale(0.88);
+  transition-duration: 80ms;
+}
+
+/* Empty states breathe in */
+.empty-state .empty-icon {
+  animation: empty-pop var(--dur-slow) var(--spring-bounce) both;
+}
+@keyframes empty-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+}
+
+/* Panels and links: hover lift on the shared spring */
+.panel,
+.glass {
+  transition:
+    background-color 220ms ease,
+    border-color 220ms ease,
+    box-shadow 260ms ease,
+    transform var(--dur) var(--spring);
+}
+
+/* Accent picker in Profile */
+.accent-row {
+  margin: 0;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  padding: 17px 0;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+.accent-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.accent-swatch {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.accent-swatch input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.accent-dot {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow:
+    inset 0 0 0 1px rgb(0 0 0 / 10%),
+    0 0 0 0 var(--accent);
+  transition:
+    transform 360ms var(--spring-bounce),
+    box-shadow 360ms var(--spring);
+  pointer-events: none;
+}
+.accent-dot svg {
+  opacity: 0;
+  transform: scale(0.4);
+  transition:
+    opacity 160ms ease,
+    transform 360ms var(--spring-bounce);
+}
+.accent-swatch:hover .accent-dot {
+  transform: scale(1.08);
+}
+.accent-swatch:active .accent-dot {
+  transform: scale(0.9);
+  transition-duration: 80ms;
+}
+.accent-swatch input:checked + .accent-dot {
+  box-shadow:
+    inset 0 0 0 1px rgb(0 0 0 / 10%),
+    0 0 0 3px var(--surface),
+    0 0 0 5px var(--accent);
+}
+.accent-swatch input:checked + .accent-dot svg {
+  opacity: 1;
+  transform: none;
+}
+.accent-swatch input:focus-visible + .accent-dot {
+  outline: 2px solid var(--accent);
+  outline-offset: 5px;
+}
+
+/* stat icons readable in dark mode */
+[data-theme='dark'] .green {
+  background: #233a2a;
+  color: #7fd193;
+}
+[data-theme='dark'] .purple {
+  background: #342b45;
+  color: #c4a8ea;
+}
+
+/* Reduced motion: keep cross-fades, drop movement */
+@media (prefers-reduced-motion: reduce) {
+  .has-indicator.indicator-ready::before {
+    transition: none;
   }
 }

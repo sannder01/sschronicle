@@ -1,6 +1,7 @@
 'use client'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '@/lib/client'
+import { ACCENT_KEYS } from './accents'
 const AppContext = createContext(null)
 const defaults = {
   theme: 'system',
@@ -8,6 +9,7 @@ const defaults = {
   timezone: 'UTC',
   animations: true,
   reduce_transparency: false,
+  accent: 'blue',
 }
 export function AppProvider({ initialUser, initialProfile = null, children }) {
   const [profile, setProfileState] = useState(initialProfile),
@@ -42,8 +44,12 @@ export function AppProvider({ initialUser, initialProfile = null, children }) {
     const root = document.documentElement,
       media = matchMedia('(prefers-color-scheme: dark)')
     const apply = () => {
-      root.dataset.theme =
-        settings.theme === 'system' ? (media.matches ? 'dark' : 'light') : settings.theme
+      const next = settings.theme === 'system' ? (media.matches ? 'dark' : 'light') : settings.theme
+      if (root.dataset.theme && root.dataset.theme !== next && settings.animations) {
+        root.classList.add('accent-transition')
+        setTimeout(() => root.classList.remove('accent-transition'), 450)
+      }
+      root.dataset.theme = next
     }
     apply()
     media.addEventListener('change', apply)
@@ -52,10 +58,28 @@ export function AppProvider({ initialUser, initialProfile = null, children }) {
     root.dataset.transparency = settings.reduce_transparency ? 'reduced' : 'full'
     return () => media.removeEventListener('change', apply)
   }, [settings])
+  // Accent: cross-fade colours smoothly when the user picks a new one
+  const accent = ACCENT_KEYS.includes(settings.accent) ? settings.accent : 'blue'
+  useEffect(() => {
+    const root = document.documentElement
+    if (root.dataset.accent && root.dataset.accent !== accent && settings.animations) {
+      root.classList.add('accent-transition')
+      const id = setTimeout(() => root.classList.remove('accent-transition'), 450)
+      root.dataset.accent = accent
+      return () => {
+        clearTimeout(id)
+        root.classList.remove('accent-transition')
+      }
+    }
+    root.dataset.accent = accent
+  }, [accent, settings.animations])
   const notify = useCallback((message, type = 'success') => {
     clearTimeout(timer.current)
-    setToast({ message, type })
-    timer.current = setTimeout(() => setToast(null), 5000)
+    setToast({ message, type, id: Date.now() })
+    timer.current = setTimeout(() => {
+      setToast((current) => current && { ...current, leaving: true })
+      timer.current = setTimeout(() => setToast(null), 260)
+    }, 4700)
   }, [])
   useEffect(() => () => clearTimeout(timer.current), [])
   const language = settings.language,
@@ -78,7 +102,11 @@ export function AppProvider({ initialUser, initialProfile = null, children }) {
     <AppContext.Provider value={value}>
       {children}
       {toast && (
-        <div className={`toast glass ${toast.type}`} role="status">
+        <div
+          key={toast.id}
+          className={`toast glass ${toast.type} ${toast.leaving ? 'leaving' : ''}`}
+          role="status"
+        >
           {toast.message}
         </div>
       )}

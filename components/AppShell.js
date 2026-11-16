@@ -2,14 +2,16 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useApp } from './AppContext'
 import { Button, Dialog } from './ui'
 import Icon from './Icon'
+import { useIndicator } from './motion'
 const navigation = [
   ['tasks', 'Задачи', 'Tasks'],
   ['habits', 'Привычки', 'Habits'],
   ['challenges', 'Челленджи', 'Challenges'],
+  ['schedule', 'Расписание', 'Schedule'],
   ['calendar', 'Календарь', 'Calendar'],
   ['notes', 'Заметки', 'Notes'],
   ['diary', 'Дневник', 'Diary'],
@@ -36,8 +38,10 @@ export function Avatar({ user, size = '' }) {
 }
 export default function AppShell({ children }) {
   const pathname = usePathname(),
-    { user, t, profileError, refreshProfile } = useApp(),
-    [more, setMore] = useState(false)
+    { user, t, settings, profileError, refreshProfile } = useApp(),
+    [more, setMore] = useState(false),
+    navRef = useRef(null)
+  useIndicator(navRef, '.nav-link.active', [pathname])
   useEffect(() => {
     setMore(false)
   }, [pathname])
@@ -55,7 +59,7 @@ export default function AppShell({ children }) {
     </Link>
   )
   return (
-    <div className="app-shell">
+    <div className="app-shell" data-accent={settings.accent || 'blue'}>
       <a href="#main" className="skip-link">
         {t('К содержимому', 'Skip to content')}
       </a>
@@ -67,10 +71,14 @@ export default function AppShell({ children }) {
           Chronicle<span className="brand-period">.</span>
         </Link>
         <div className="sidebar-caption">{t('ВАШЕ ПРОСТРАНСТВО', 'YOUR SPACE')}</div>
-        <nav aria-label={t('Основная навигация', 'Main navigation')}>
-          {navigation.slice(0, 6).map((item) => navLink(item))}
+        <nav
+          ref={navRef}
+          className="has-indicator"
+          aria-label={t('Основная навигация', 'Main navigation')}
+        >
+          {navigation.slice(0, 7).map((item) => navLink(item))}
           <div className="nav-divider" />
-          {navigation.slice(6).map((item) => navLink(item))}
+          {navigation.slice(7).map((item) => navLink(item))}
         </nav>
         <div className="sidebar-bottom">
           <div className="sidebar-note">
@@ -120,7 +128,7 @@ export default function AppShell({ children }) {
         {[navigation[0], navigation[1], navigation[4]].map((item) => navLink(item, true))}
         <Button
           variant="ghost"
-          className={`nav-link ${['challenges', 'calendar', 'diary', 'progress', 'profile'].some(active) ? 'active' : ''}`}
+          className={`nav-link ${['schedule', 'challenges', 'calendar', 'diary', 'progress', 'profile'].some(active) ? 'active' : ''}`}
           onClick={() => setMore(true)}
           aria-expanded={more}
         >
@@ -142,4 +150,3 @@ export default function AppShell({ children }) {
     </div>
   )
 }
-
