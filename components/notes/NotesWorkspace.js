@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useApp } from '@/components/AppContext'
 import { api } from '@/lib/client'
-import { Button, Dialog } from '@/components/ui'
+import { Button, Dialog, Select } from '@/components/ui'
 import { NoteAutosave } from '@/lib/notes/autosave.mjs'
 import {
   documentText,
@@ -455,11 +455,16 @@ export default function NotesWorkspace() {
           </button>
           <label className="notes-sort">
             <span className="sr-only">{t('Сортировка заметок', 'Sort notes')}</span>
-            <select value={sort} onChange={(event) => setSort(event.target.value)}>
-              <option value="updated">{t('По изменению', 'Date edited')}</option>
-              <option value="created">{t('По созданию', 'Date created')}</option>
-              <option value="title">{t('По названию', 'Title')}</option>
-            </select>
+            <Select
+              className="notes-sort-select"
+              value={sort}
+              onChange={setSort}
+              options={[
+                { value: 'updated', label: t('По изменению', 'Date edited') },
+                { value: 'created', label: t('По созданию', 'Date created') },
+                { value: 'title', label: t('По названию', 'Title') },
+              ]}
+            />
           </label>
         </header>
         <h2 className="notes-large-title">{folderTitle}</h2>

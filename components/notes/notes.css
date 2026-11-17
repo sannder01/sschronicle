@@ -249,14 +249,16 @@
   color: var(--note-accent);
   font-size: 12px;
 }
-.notes-sort select {
+.notes-sort .select-trigger {
+  width: auto;
   background: none;
   border: 0;
+  box-shadow: none;
   padding: 10px 2px;
   min-height: 44px;
   font-size: 12px;
-  max-width: 150px;
-  cursor: pointer;
+  max-width: 170px;
+  color: inherit;
 }
 .notes-search {
   display: flex;
@@ -985,7 +987,7 @@
     display: inline-flex;
     margin-left: -4px;
   }
-  .notes-sort select {
+  .notes-sort .select-trigger {
     font-size: 13px;
     max-width: 155px;
   }

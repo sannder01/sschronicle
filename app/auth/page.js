@@ -48,10 +48,8 @@ function AuthContent() {
     <div className="auth-page">
       <header className="public-header">
         <Link className="brand" href="/">
-          <span className="brand-mark">
-            C<span />
-          </span>
-          Chronicle.
+          <span className="brand-mark">C</span>
+          Chronicle
         </Link>
         <nav>
           <span>{t('Ваш личный ритм', 'At your own pace')}</span>
@@ -100,9 +98,7 @@ function AuthContent() {
           </div>
         </div>
         <section className="auth-card glass">
-          <span className="brand-mark">
-            C<span />
-          </span>
+          <span className="brand-mark">C</span>
           <h2>
             {t('Добро пожаловать', 'Welcome to')}
             <br />

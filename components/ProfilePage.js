@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { signIn, signOut } from 'next-auth/react'
 import { useApp } from './AppContext'
 import { Avatar } from './AppShell'
-import { Button, Input, Dialog, LoadingState, ErrorState } from './ui'
+import { Button, Input, Dialog, LoadingState, ErrorState, Select } from './ui'
 import Icon from './Icon'
 import { ACCENTS } from './accents'
 import { api, clearPrivateCache } from '@/lib/client'
@@ -265,16 +265,16 @@ export default function ProfilePage() {
                   {t('Светло, темно или как на устройстве', 'Light, dark, or your device setting')}
                 </small>
               </span>
-              <select
-                className="input"
+              <Select
                 disabled={busy}
                 value={settings.theme}
-                onChange={(e) => update({ settings: { theme: e.target.value } })}
-              >
-                <option value="light">{t('Светлая', 'Light')}</option>
-                <option value="dark">{t('Тёмная', 'Dark')}</option>
-                <option value="system">{t('Системная', 'System')}</option>
-              </select>
+                onChange={(theme) => update({ settings: { theme } })}
+                options={[
+                  { value: 'light', label: t('Светлая', 'Light') },
+                  { value: 'dark', label: t('Тёмная', 'Dark') },
+                  { value: 'system', label: t('Системная', 'System') },
+                ]}
+              />
             </label>
             <fieldset className="setting-row accent-row">
               <legend className="sr-only">{t('Цвет акцента', 'Accent colour')}</legend>
@@ -304,31 +304,27 @@ export default function ProfilePage() {
             </fieldset>
             <label className="setting-row">
               <span>{t('Язык', 'Language')}</span>
-              <select
-                className="input"
+              <Select
                 value={settings.language}
                 disabled={busy}
-                onChange={(e) => update({ settings: { language: e.target.value } })}
-              >
-                <option value="ru">Русский</option>
-                <option value="en">English</option>
-              </select>
+                onChange={(language) => update({ settings: { language } })}
+                options={[
+                  { value: 'ru', label: 'Русский' },
+                  { value: 'en', label: 'English' },
+                ]}
+              />
             </label>
             <label className="setting-row">
               <span>
                 {t('Часовой пояс', 'Time zone')}
                 <small>{t('Для дат и напоминаний', 'Used for dates and reminders')}</small>
               </span>
-              <select
-                className="input"
+              <Select
                 disabled={busy}
                 value={settings.timezone}
-                onChange={(e) => update({ settings: { timezone: e.target.value } })}
-              >
-                {zones.map((zone) => (
-                  <option key={zone}>{zone}</option>
-                ))}
-              </select>
+                onChange={(timezone) => update({ settings: { timezone } })}
+                options={zones.map((zone) => ({ value: zone, label: zone }))}
+              />
             </label>
             <label className="setting-row">
               <span>

@@ -1,8 +1,15 @@
 'use client'
 import { useMemo, useRef, useState } from 'react'
-import Link from 'next/link'
 import { useApp } from '@/components/AppContext'
-import { Button, Dialog, Input, EmptyState, LoadingState, ErrorState } from '@/components/ui'
+import {
+  Button,
+  Dialog,
+  Input,
+  EmptyState,
+  LoadingState,
+  ErrorState,
+  Select,
+} from '@/components/ui'
 import Icon from '@/components/Icon'
 import { useTasks } from './TasksContext'
 import TaskEditor from './TaskEditor'
@@ -191,20 +198,17 @@ export default function TasksPage() {
                 </button>
               ))}
             </div>
-            <select
-              className="input folder-select"
+            <Select
+              className="folder-select"
               value={folder}
-              onChange={(e) => setFolder(e.target.value)}
+              onChange={(next) => setFolder(String(next))}
               aria-label={t('Папка задач', 'Task folder')}
-            >
-              <option value="all">{t('Все папки', 'All folders')}</option>
-              <option value="none">{t('Без папки', 'No folder')}</option>
-              {folders.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.name}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: 'all', label: t('Все папки', 'All folders') },
+                { value: 'none', label: t('Без папки', 'No folder') },
+                ...folders.map((f) => ({ value: f.id, label: f.name })),
+              ]}
+            />
           </div>
           {loading ? (
             <LoadingState />
@@ -318,28 +322,6 @@ export default function TasksPage() {
               </p>
             )}
           </section>
-          <section className="gentle-card">
-            <span className="gentle-label">CHRONICLE / {t('ПРИНЦИП 01', 'PRINCIPLE 01')}</span>
-            <Icon name="leaf" size={32} />
-            <h3>
-              {t('Не всё сразу.', 'One thing at a time.')}
-              <br />
-              {t('По одному шагу.', 'At your own pace.')}
-            </h3>
-            <p>
-              {t(
-                'Оставьте место для жизни между пунктами списка.',
-                'Leave a little room for life between the checkboxes.',
-              )}
-            </p>
-            <Link href="/app/challenges">
-              {t('Начать челлендж', 'Start a challenge')}
-              <Icon name="arrow" size={16} />
-            </Link>
-          </section>
-          <p className="aside-footer">
-            {t('Меньше шума. Больше ясности.', 'Less noise. More clarity.')}
-          </p>
         </aside>
       </div>
       {editing && (

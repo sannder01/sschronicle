@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useApp } from '@/components/AppContext'
-import { Button, Dialog, Input, LoadingState } from '@/components/ui'
+import { Button, Dialog, Input, LoadingState, Select } from '@/components/ui'
 import { api } from '@/lib/client'
 import { addDays, displayDate, todayInZone, weekday } from '@/lib/dates'
 import { trackingErrorMessage } from '@/lib/tracking-client'
@@ -297,22 +297,17 @@ export default function ChallengeDetail({ id }) {
       <section className="panel challenge-manage">
         <label className="field">
           {t('Попытки', 'Attempts')}
-          <select
-            className="input"
+          <Select
             value={attempt.id}
-            onChange={(event) => {
+            onChange={(id) => {
               setData(null)
-              setAttemptId(event.target.value)
+              setAttemptId(String(id))
             }}
-          >
-            {attempts.map((item, index) => (
-              <option key={item.id} value={item.id}>
-                {t('Попытка', 'Attempt')} {attempts.length - index} ·{' '}
-                {displayDate(item.start_date, language, { year: 'numeric' })}
-                {index === 0 ? ` · ${t('текущая', 'latest')}` : ''}
-              </option>
-            ))}
-          </select>
+            options={attempts.map((item, index) => ({
+              value: item.id,
+              label: `${t('Попытка', 'Attempt')} ${attempts.length - index} · ${displayDate(item.start_date, language, { year: 'numeric' })}${index === 0 ? ` · ${t('текущая', 'latest')}` : ''}`,
+            }))}
+          />
         </label>
         <div className="tracking-manage-buttons">
           <Button

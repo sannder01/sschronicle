@@ -663,10 +663,6 @@ small {
   font-weight: 700;
   line-height: 1;
 }
-.brand-period {
-  color: var(--accent);
-  margin-left: -9px;
-}
 .brand-mark {
   font-size: 22px;
   font-weight: 600;
@@ -678,17 +674,7 @@ small {
   background: var(--text);
   color: var(--surface);
   position: relative;
-  letter-spacing: -2px;
-  padding-right: 2px;
-}
-.brand-mark > span {
-  position: absolute;
-  width: 5px;
-  height: 5px;
-  background: color-mix(in srgb, var(--accent) 55%, #fff);
-  border-radius: 50%;
-  right: 5px;
-  bottom: 8px;
+  letter-spacing: 0;
 }
 .sidebar .brand {
   margin: 0 7px 44px;
@@ -1010,7 +996,7 @@ small {
 }
 .folder-select {
   width: auto;
-  max-width: 170px;
+  max-width: 190px;
   font-size: 12px;
   min-height: 35px;
   padding: 5px 8px;
@@ -1273,52 +1259,6 @@ small {
   padding: 0 18px 22px;
   color: var(--muted);
   font-size: 12px;
-}
-.gentle-card {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  padding: 25px 23px 21px;
-  background: linear-gradient(130deg, #edf0e8, #e9ede7);
-  border: 1px solid #e1e7da;
-  border-radius: 17px;
-  color: #435147;
-  min-height: 268px;
-}
-.gentle-label {
-  font-size: 8px;
-  font-weight: 500;
-  letter-spacing: 1.2px;
-  opacity: 0.65;
-  margin-bottom: 30px;
-}
-.gentle-card > svg {
-  margin-bottom: 15px;
-  color: #728b6c;
-}
-.gentle-card h3 {
-  font-size: 22px;
-  line-height: 1.25;
-  letter-spacing: -0.6px;
-  font-weight: 550;
-}
-.gentle-card p {
-  font-size: 11px;
-  opacity: 0.75;
-  margin: 14px 0 21px;
-  line-height: 1.65;
-}
-.gentle-card a {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 11px;
-  font-weight: 600;
-}
-.aside-footer {
-  font-size: 10px;
-  color: var(--muted);
-  text-align: center;
 }
 .notes-main {
   padding: 0;
@@ -1843,18 +1783,6 @@ small {
   .task-aside {
     grid-template-columns: 1fr 1fr;
   }
-  .aside-footer {
-    display: none;
-  }
-  .gentle-card {
-    min-height: 220px;
-  }
-  .gentle-label {
-    margin-bottom: 15px;
-  }
-  .gentle-card > svg {
-    display: none;
-  }
   .calendar-layout {
     grid-template-columns: 1fr;
   }
@@ -2085,20 +2013,6 @@ small {
   }
   .task-aside {
     grid-template-columns: 1fr;
-  }
-  .gentle-card {
-    min-height: 0;
-    padding: 23px;
-  }
-  .gentle-card h3 {
-    font-size: 23px;
-  }
-  .gentle-label {
-    margin-bottom: 19px;
-  }
-  .gentle-card p {
-    font-size: 12px;
-    max-width: 250px;
   }
   .folder-panel .panel-heading {
     padding: 10px 16px;
@@ -2644,5 +2558,100 @@ input[type='checkbox']:active {
   }
   to {
     background-position: -150% 0;
+  }
+}
+
+/* Select: our own listbox instead of the OS dropdown. */
+.select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  text-align: left;
+  cursor: pointer;
+}
+.select-trigger:disabled {
+  cursor: default;
+}
+.select-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.select-trigger > svg {
+  flex-shrink: 0;
+  color: var(--muted);
+  transform: rotate(90deg);
+  transition: transform 180ms ease;
+}
+.select-trigger.open > svg {
+  transform: rotate(-90deg);
+}
+.select-list {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  z-index: 1000;
+  max-width: min(360px, calc(100vw - 16px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+  padding: 6px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.08),
+    0 12px 32px -8px rgb(0 0 0 / 0.28);
+  font-size: 14px;
+  animation: select-in 160ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  transform-origin: top center;
+}
+.select-list.above {
+  transform-origin: bottom center;
+}
+.select-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 38px;
+  padding: 8px 10px 8px 12px;
+  border-radius: 9px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.select-option > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.select-option.active {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.select-option[aria-selected='true'] {
+  color: var(--accent);
+  font-weight: 600;
+}
+.select-option[aria-disabled='true'] {
+  opacity: 0.45;
+  cursor: default;
+}
+.select-option > svg {
+  flex-shrink: 0;
+}
+@keyframes select-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-4px);
+  }
+}
+.select-list.above {
+  animation-name: select-in-up;
+}
+@keyframes select-in-up {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(4px);
   }
 }

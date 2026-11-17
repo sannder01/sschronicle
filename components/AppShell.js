@@ -66,10 +66,8 @@ export default function AppShell({ children }) {
       </a>
       <aside className="sidebar glass">
         <Link className="brand" href="/app/tasks">
-          <span className="brand-mark">
-            C<span />
-          </span>
-          Chronicle<span className="brand-period">.</span>
+          <span className="brand-mark">C</span>
+          Chronicle
         </Link>
         <div className="sidebar-caption">{t('ВАШЕ ПРОСТРАНСТВО', 'YOUR SPACE')}</div>
         <nav
@@ -103,10 +101,8 @@ export default function AppShell({ children }) {
       <div className="app-body">
         <header className="mobile-top glass">
           <Link className="brand" href="/app/tasks">
-            <span className="brand-mark">
-              C<span />
-            </span>
-            Chronicle.
+            <span className="brand-mark">C</span>
+            Chronicle
           </Link>
           <Link href="/app/profile" aria-label={t('Личный кабинет', 'Profile')}>
             <Avatar user={user} />

@@ -3,7 +3,7 @@ const path = require('node:path')
 const fs = require('node:fs/promises')
 const directory = path.join(__dirname, '..', 'public')
 const source =
-  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#1d1d1f"/><path d="M340 155a144 144 0 1 0 0 202" fill="none" stroke="#f5f5f7" stroke-width="58" stroke-linecap="round"/><circle cx="361" cy="365" r="26" fill="#8bc7ff"/></svg>'
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#1d1d1f"/><path d="M340 155a144 144 0 1 0 0 202" fill="none" stroke="#f5f5f7" stroke-width="58" stroke-linecap="round"/></svg>'
 async function generate() {
   await fs.writeFile(path.join(directory, 'logo.svg'), source)
   for (const [name, size] of [

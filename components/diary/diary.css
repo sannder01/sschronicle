@@ -118,7 +118,7 @@
 .diary-ink-rose { background: var(--diary-rose); }
 .diary-ink-sage { background: var(--diary-sage); }
 .diary-pen-size { display: flex; align-items: center; gap: 7px; color: var(--diary-soft-text); font-size: 10px; }
-.diary-pen-size select { border: 1px solid var(--diary-paper-border); border-radius: 6px; background: var(--diary-paper); color: var(--diary-ink); padding: 5px; font-size: 11px; max-width: 120px; }
+.diary-pen-size .select-trigger { width: auto; min-height: 30px; border: 1px solid var(--diary-paper-border); border-radius: 6px; background: var(--diary-paper); color: var(--diary-ink); padding: 4px 8px; font-size: 11px; max-width: 130px; }
 .diary-draw-actions { display: flex; gap: 4px; margin-left: auto; }
 .diary-draw-actions .button { padding: 5px 7px; min-height: 28px; font-size: 10px; color: var(--diary-soft-text); }
 .diary-drawing { position: relative; border: 1px dashed var(--diary-paper-border); border-radius: 9px; aspect-ratio: 1000 / 560; background-image: radial-gradient(var(--diary-line) 1px, transparent 1px); background-size: 18px 18px; }

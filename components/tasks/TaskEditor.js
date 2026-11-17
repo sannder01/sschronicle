@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useApp } from '@/components/AppContext'
-import { Button, Dialog, Input } from '@/components/ui'
+import { Button, Dialog, Input, Select } from '@/components/ui'
 import { useTasks } from './TasksContext'
 export default function TaskEditor({ task, onClose }) {
   const { t, notify } = useApp(),
@@ -94,30 +94,26 @@ export default function TaskEditor({ task, onClose }) {
         </div>
         <label className="field">
           {t('Приоритет', 'Priority')}
-          <select
-            className="input"
+          <Select
             value={draft.priority}
-            onChange={(e) => change('priority', e.target.value)}
-          >
-            <option value="low">{t('Низкий', 'Low')}</option>
-            <option value="medium">{t('Обычный', 'Medium')}</option>
-            <option value="high">{t('Высокий', 'High')}</option>
-          </select>
+            onChange={(priority) => change('priority', priority)}
+            options={[
+              { value: 'low', label: t('Низкий', 'Low') },
+              { value: 'medium', label: t('Обычный', 'Medium') },
+              { value: 'high', label: t('Высокий', 'High') },
+            ]}
+          />
         </label>
         <label className="field">
           {t('Папка', 'Folder')}
-          <select
-            className="input"
-            value={draft.folder_id}
-            onChange={(e) => change('folder_id', e.target.value)}
-          >
-            <option value="">{t('Без папки', 'No folder')}</option>
-            {folders.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.name}
-              </option>
-            ))}
-          </select>
+          <Select
+            value={draft.folder_id ?? ''}
+            onChange={(folderId) => change('folder_id', String(folderId))}
+            options={[
+              { value: '', label: t('Без папки', 'No folder') },
+              ...folders.map((f) => ({ value: f.id, label: f.name })),
+            ]}
+          />
         </label>
         {error && (
           <p className="form-error" role="alert">

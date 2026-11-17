@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { Button, Dialog } from '@/components/ui'
+import { Button, Dialog, Select } from '@/components/ui'
 import { INKS, LIMITS, strokePath } from '@/lib/diary/format.mjs'
 
 export default function DiaryDrawing({ strokes, onChange, t }) {
@@ -42,9 +42,7 @@ export default function DiaryDrawing({ strokes, onChange, t }) {
         <div className="diary-swatches" role="group" aria-label={t('Цвет пера', 'Pen color')}>
           {INKS.map((ink, i) => <button key={ink} type="button" className={`diary-swatch diary-ink-${ink}`} aria-label={names[i]} title={names[i]} aria-pressed={color === ink} onClick={() => setColor(ink)} />)}
         </div>
-        <label className="diary-pen-size">{t('Перо', 'Pen')}<select aria-label={t('Толщина пера', 'Pen width')} value={width} onChange={(e) => setWidth(Number(e.target.value))}>
-          <option value={2}>{t('Тонкое', 'Fine')}</option><option value={4}>{t('Среднее', 'Medium')}</option><option value={7}>{t('Толстое', 'Bold')}</option>
-        </select></label>
+        <label className="diary-pen-size">{t('Перо', 'Pen')}<Select aria-label={t('Толщина пера', 'Pen width')} value={width} onChange={setWidth} options={[{ value: 2, label: t('Тонкое', 'Fine') }, { value: 4, label: t('Среднее', 'Medium') }, { value: 7, label: t('Толстое', 'Bold') }]} /></label>
         <div className="diary-draw-actions">
           <Button variant="ghost" disabled={!strokes.length || !!draft} onClick={() => onChange(strokes.slice(0, -1))}>{t('Отменить штрих', 'Undo stroke')}</Button>
           <Button variant="ghost" disabled={!strokes.length || !!draft} onClick={() => setClear(true)}>{t('Очистить', 'Clear')}</Button>
