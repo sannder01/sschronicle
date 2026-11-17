@@ -1,115 +1,91 @@
 import { test, expect } from '@playwright/test'
 import { login, client, call } from './helpers'
-import { todayInZone } from '../../lib/dates'
 
 test.beforeEach(async ({ context }) => login(context))
 
-const SHOTS = process.env.SCHEDULE_SHOTS // optional folder for screenshots
+const dragTo = async (page, fromLocator, toLocator) => {
+  const f = await fromLocator.boundingBox(),
+    t = await toLocator.boundingBox()
+  await page.mouse.move(f.x + f.width / 2, f.y + f.height / 2)
+  await page.mouse.down()
+  for (let i = 1; i <= 10; i++)
+    await page.mouse.move(
+      f.x + f.width / 2 + ((t.x + t.width / 2 - f.x - f.width / 2) * i) / 10,
+      f.y + f.height / 2 + ((t.y + t.height / 2 - f.y - f.height / 2) * i) / 10,
+    )
+  await page.mouse.up()
+}
 
-test('board: cards from the schedule, tie and cut strings, drag, arrange', async ({
+test('board: nested folders, folder strings, task strings, no schedule', async ({
   page,
   playwright,
 }) => {
   const errors = []
   page.on('pageerror', (error) => errors.push(error.message))
-  const api = await client(playwright),
-    day = todayInZone('Asia/Qyzylorda')
+  const api = await client(playwright)
   await call(api, '/api/profile', 'PATCH', { settings: { theme: 'light', accent: 'blue' } })
-  for (const block of await call(api, '/api/schedule?day=' + day))
-    await call(api, '/api/schedule/' + block.id, 'DELETE')
-  const make = (title, start, color = 'accent', note) =>
-    call(
-      api,
-      '/api/schedule',
-      'POST',
-      { day, start_min: start, end_min: start + 60, title, color, note },
-      201,
-    )
-  const a = await make('Курсовая: глава 2', 9 * 60, 'accent', 'Дописать выводы')
-  const b = await make('Библиотека', 11 * 60, 'green')
-  const c = await make('Созвон с научруком', 14 * 60, 'orange')
-  await make('Спортзал', 18 * 60, 'red')
+  const stamp = Date.now()
+  const work = await call(api, '/api/folders', 'POST', { name: 'Работа ' + stamp }, 201)
+  const project = await call(
+    api,
+    '/api/folders',
+    'POST',
+    { name: 'Проект ' + stamp, parent_id: work.id },
+    201,
+  )
+  const home = await call(api, '/api/folders', 'POST', { name: 'Дом ' + stamp }, 201)
+  const task = await call(
+    api,
+    '/api/tasks',
+    'POST',
+    { title: 'Сверстать макет ' + stamp, folder_id: project.id },
+    201,
+  )
+  // a folder cannot go inside its own subfolder
+  await call(api, '/api/folders/' + work.id, 'PATCH', { parent_id: project.id }, 400)
 
   await page.goto('/app/board')
-  await page.evaluate(() => localStorage.setItem('chronicle-board-source', 'schedule'))
-  await page.reload()
   await expect(page.getByRole('heading', { name: 'Доска', exact: true })).toBeVisible()
-  const cardA = page.locator(`.board-card[data-id="${a.id}"]`),
-    cardB = page.locator(`.board-card[data-id="${b.id}"]`),
-    cardC = page.locator(`.board-card[data-id="${c.id}"]`)
-  await expect(cardA).toBeVisible()
-  // never-placed cards get a place on the board, saved once
+  // the schedule is no longer on the board
+  await expect(page.getByRole('button', { name: 'Расписание', exact: true })).toHaveCount(0)
+  const card = (id) => page.locator(`.board-card[data-id="${id}"]`)
+  const workCard = card(-work.id),
+    projectCard = card(-project.id),
+    homeCard = card(-home.id),
+    taskCard = card(task.id)
+  await expect(workCard).toHaveClass(/folder-card/)
+  await expect(projectCard).toBeVisible()
+  await expect(taskCard).toBeVisible()
+  // nesting is drawn: Работа → Проект → task
+  await expect(
+    page.locator(`.rope.fixed[data-from="${-work.id}"][data-to="${-project.id}"]`),
+  ).toHaveCount(1)
+  await expect(
+    page.locator(`.rope.fixed[data-from="${-project.id}"][data-to="${task.id}"]`),
+  ).toHaveCount(1)
   await expect
-    .poll(async () =>
-      (await call(api, '/api/schedule?day=' + day)).every((x) => x.canvas_x != null),
-    )
-    .toBe(true)
+    .poll(async () => (await call(api, '/api/folders')).filter((f) => f.canvas_x != null).length)
+    .toBeGreaterThanOrEqual(3)
 
-  // tie a string: drag from A's pin onto B
-  const dragTo = async (fromLocator, toLocator) => {
-    const f = await fromLocator.boundingBox(),
-      t = await toLocator.boundingBox()
-    await page.mouse.move(f.x + f.width / 2, f.y + f.height / 2)
-    await page.mouse.down()
-    for (let i = 1; i <= 10; i++)
-      await page.mouse.move(
-        f.x + f.width / 2 + ((t.x + t.width / 2 - f.x - f.width / 2) * i) / 10,
-        f.y + f.height / 2 + ((t.y + t.height / 2 - f.y - f.height / 2) * i) / 10,
-      )
-    await page.mouse.up()
-  }
-  await dragTo(page.locator(`.board-pin[data-id="${a.id}"]`), cardB)
-  await dragTo(page.locator(`.board-pin[data-id="${b.id}"]`), cardC)
-  await expect.poll(async () => (await call(api, '/api/schedule/links?day=' + day)).length).toBe(2)
-  await expect(page.locator('.rope')).toHaveCount(2)
+  // tie two folders with a string
+  await dragTo(page, page.locator(`.board-pin[data-id="${-work.id}"]`), homeCard)
+  const tied = async () =>
+    (await call(api, '/api/folders/links')).filter(
+      (l) => l.from_id === Math.min(work.id, home.id) && l.to_id === Math.max(work.id, home.id),
+    ).length
+  await expect.poll(tied).toBe(1)
 
-  // keyboard linking: L on a card, then pick another
-  await cardA.locator('.card-body').focus()
+  // a task cannot be tied to a folder by hand
+  await taskCard.locator('.card-body').focus()
   await page.keyboard.press('l')
-  await cardC.locator('.card-body').click()
-  await expect.poll(async () => (await call(api, '/api/schedule/links?day=' + day)).length).toBe(3)
+  await homeCard.locator('.card-body').click()
+  await page.waitForTimeout(400)
+  expect(await tied()).toBe(1)
+  expect((await call(api, '/api/tasks/links')).some((l) => l.from_id === task.id)).toBe(false)
 
-  // drag a card: the position is saved
-  const before = (await call(api, '/api/schedule?day=' + day)).find((x) => x.id === c.id)
-  const box = await cardC.locator('.card-time').boundingBox()
-  await page.mouse.move(box.x + 10, box.y + 5)
-  await page.mouse.down()
-  for (let i = 1; i <= 10; i++) await page.mouse.move(box.x + 10 + i * 8, box.y + 5 + i * 5)
-  await page.waitForTimeout(150)
-  await page.mouse.up()
-  await expect
-    .poll(
-      async () => (await call(api, '/api/schedule?day=' + day)).find((x) => x.id === c.id).canvas_x,
-    )
-    .not.toBe(before.canvas_x)
-
-  // arrange (force layout) saves every position
-  await page.getByRole('button', { name: 'Разложить' }).click()
-  await expect(page.getByRole('button', { name: 'Разложить' })).toBeEnabled({ timeout: 10000 })
-
-  if (SHOTS) {
-    await page.waitForTimeout(900)
-    await cardA.hover()
-    await page.waitForTimeout(400)
-    await page.screenshot({ path: SHOTS + '/board-light.png' })
-    await call(api, '/api/profile', 'PATCH', { settings: { theme: 'dark' } })
-    await page.reload()
-    await page.waitForTimeout(1200)
-    await page.screenshot({ path: SHOTS + '/board-dark.png' })
-    await page.setViewportSize({ width: 390, height: 844 })
-    await page.reload()
-    await page.waitForTimeout(1200)
-    await page.screenshot({ path: SHOTS + '/board-390.png' })
-    await page.setViewportSize({ width: 1440, height: 1000 })
-    await call(api, '/api/profile', 'PATCH', { settings: { theme: 'light' } })
-    await page.reload()
-  }
-
-  // cut a string: click it, then the scissors button
-  const linksBefore = (await call(api, '/api/schedule/links?day=' + day)).length
-  // click a point that really lies on the (curved) string
+  // cut the folder string: click it, then the remove button
   const point = await page
-    .locator('.rope-hit')
+    .locator(`.rope:not(.fixed)[data-from="${-home.id}"] .rope-hit`)
     .first()
     .evaluate((path) => {
       const p = path.getPointAtLength(path.getTotalLength() / 2),
@@ -118,14 +94,16 @@ test('board: cards from the schedule, tie and cut strings, drag, arrange', async
     })
   await page.mouse.click(point.x, point.y)
   await page.getByRole('button', { name: 'Убрать нить' }).click()
-  await expect
-    .poll(async () => (await call(api, '/api/schedule/links?day=' + day)).length)
-    .toBe(linksBefore - 1)
+  await expect.poll(tied).toBe(0)
+
+  // deleting a folder moves its contents up a level
+  await call(api, '/api/folders/' + project.id, 'DELETE')
+  expect((await call(api, '/api/tasks')).find((x) => x.id === task.id).folder_id).toBe(work.id)
 
   expect(errors).toEqual([])
 })
 
-test('board: switch to tasks, tie two tasks, the choice is remembered', async ({
+test('board: tie two tasks, finished tasks leave on the next visit', async ({
   page,
   playwright,
 }) => {
@@ -137,7 +115,6 @@ test('board: switch to tasks, tie two tasks, the choice is remembered', async ({
   const two = await call(api, '/api/tasks', 'POST', { title: 'Написать конспект ' + stamp }, 201)
 
   await page.goto('/app/board')
-  await page.getByRole('button', { name: 'Задачи', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Новая задача' })).toBeVisible()
   const cardOne = page.locator(`.board-card[data-id="${one.id}"]`),
     cardTwo = page.locator(`.board-card[data-id="${two.id}"]`)
@@ -170,10 +147,6 @@ test('board: switch to tasks, tie two tasks, the choice is remembered', async ({
     .toBe(true)
 
   await page.reload()
-  await expect(page.getByRole('button', { name: 'Задачи', exact: true })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  )
   await expect(cardTwo).toBeVisible()
   await expect(cardOne).toHaveCount(0) // done tasks leave the board on the next visit
   expect(errors).toEqual([])

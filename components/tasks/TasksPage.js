@@ -1,33 +1,30 @@
 'use client'
 import { useMemo, useRef, useState } from 'react'
 import { useApp } from '@/components/AppContext'
-import {
-  Button,
-  Dialog,
-  Input,
-  EmptyState,
-  LoadingState,
-  ErrorState,
-  Select,
-} from '@/components/ui'
+import { Button, EmptyState, LoadingState, ErrorState, Select } from '@/components/ui'
 import Icon from '@/components/Icon'
 import { useTasks } from './TasksContext'
 import TaskEditor from './TaskEditor'
 import TaskRow from './TaskRow'
+import FolderEditor from './FolderEditor'
 import { todayInZone } from '@/lib/dates'
 import { useIndicator } from '@/components/motion'
+import { folderTree, descendantIds, folderOptions } from '@/lib/folder-shape.mjs'
 export default function TasksPage() {
   const { t, user, settings, language, notify } = useApp(),
-    { tasks, folders, loading, error, reload, saveFolder, deleteFolder } = useTasks()
+    { tasks, folders, loading, error, reload } = useTasks()
   const [filter, setFilter] = useState('active'),
     [folder, setFolder] = useState('all'),
     [search, setSearch] = useState(''),
     [editing, setEditing] = useState(null),
     [folderEdit, setFolderEdit] = useState(null),
-    [folderBusy, setFolderBusy] = useState(false),
-    [folderError, setFolderError] = useState(''),
-    [deleteConfirm, setDeleteConfirm] = useState(false),
     segmentedRef = useRef(null)
+  const tree = useMemo(() => folderTree(folders), [folders])
+  // Picking a folder also shows the tasks in its subfolders.
+  const shownFolders = useMemo(
+    () => (['all', 'none'].includes(folder) ? null : descendantIds(folders, Number(folder))),
+    [folders, folder],
+  )
   useIndicator(segmentedRef, '.selected', [filter, loading])
   const today = todayInZone(settings.timezone),
     active = tasks.filter((x) => !x.completed),
@@ -46,7 +43,7 @@ export default function TasksPage() {
                     ? !x.completed && x.due_date?.slice(0, 10) > today
                     : !x.completed)) &&
             (folder === 'all' ||
-              (folder === 'none' ? !x.folder_id : x.folder_id === Number(folder))) &&
+              (folder === 'none' ? !x.folder_id : shownFolders?.has(Number(x.folder_id)))) &&
             x.title.toLocaleLowerCase().includes(search.toLocaleLowerCase()),
         )
         .sort(
@@ -55,7 +52,7 @@ export default function TasksPage() {
             (a.due_date || '9999').localeCompare(b.due_date || '9999') ||
             { high: 0, medium: 1, low: 2 }[a.priority] - { high: 0, medium: 1, low: 2 }[b.priority],
         ),
-    [tasks, filter, folder, search, today],
+    [tasks, filter, folder, shownFolders, search, today],
   )
   const overdue = visible.filter(
       (x) => !x.completed && x.due_date && x.due_date.slice(0, 10) < today,
@@ -66,33 +63,6 @@ export default function TasksPage() {
         (a, b) =>
           (b.created_at || '').localeCompare(a.created_at || '') || Number(b.id) - Number(a.id),
       )
-  async function submitFolder(e) {
-    e.preventDefault()
-    setFolderBusy(true)
-    setFolderError('')
-    try {
-      await saveFolder(folderEdit)
-      setFolderEdit(null)
-      notify(t('Папка сохранена', 'Folder saved'))
-    } catch {
-      setFolderError(t('Не удалось сохранить папку', 'Could not save folder'))
-    } finally {
-      setFolderBusy(false)
-    }
-  }
-  async function removeFolder() {
-    setFolderBusy(true)
-    try {
-      await deleteFolder(folderEdit.id)
-      setFolder('all')
-      setFolderEdit(null)
-      setDeleteConfirm(false)
-    } catch {
-      setFolderError(t('Не удалось удалить папку', 'Could not delete folder'))
-    } finally {
-      setFolderBusy(false)
-    }
-  }
   return (
     <div className="page tasks-page">
       <header className="page-header">
@@ -206,7 +176,7 @@ export default function TasksPage() {
               options={[
                 { value: 'all', label: t('Все папки', 'All folders') },
                 { value: 'none', label: t('Без папки', 'No folder') },
-                ...folders.map((f) => ({ value: f.id, label: f.name })),
+                ...folderOptions(tree),
               ]}
             />
           </div>
@@ -283,17 +253,19 @@ export default function TasksPage() {
                 variant="ghost"
                 aria-label={t('Создать папку', 'Create folder')}
                 onClick={() => {
-                  setFolderEdit({ name: '', color: '#007aff' })
-                  setFolderError('')
-                  setDeleteConfirm(false)
+                  setFolderEdit({ name: '', color: '#007aff', parent_id: null })
                 }}
               >
                 <Icon name="plus" size={18} />
               </Button>
             </div>
-            {folders.map((f) => (
-              <div className="folder-row" key={f.id}>
-                <button onClick={() => setFolder(String(f.id))}>
+            {tree.map((f) => (
+              <div
+                className={`folder-row ${folder === String(f.id) ? 'selected' : ''}`}
+                key={f.id}
+                style={{ '--depth': f.depth }}
+              >
+                <button onClick={() => setFolder(folder === String(f.id) ? 'all' : String(f.id))}>
                   <span className="folder-color" style={{ color: f.color }}>
                     <Icon name="folder" size={18} />
                   </span>
@@ -305,8 +277,6 @@ export default function TasksPage() {
                   aria-label={`${t('Изменить папку', 'Edit folder')}: ${f.name}`}
                   onClick={() => {
                     setFolderEdit(f)
-                    setFolderError('')
-                    setDeleteConfirm(false)
                   }}
                 >
                   <Icon name="more" size={16} />
@@ -327,62 +297,12 @@ export default function TasksPage() {
       {editing && (
         <TaskEditor key={editing.id || 'new'} task={editing} onClose={() => setEditing(null)} />
       )}
-      <Dialog
-        open={!!folderEdit}
-        title={folderEdit?.id ? t('Изменить папку', 'Edit folder') : t('Новая папка', 'New folder')}
-        onClose={() => !folderBusy && setFolderEdit(null)}
-      >
-        {folderEdit && (
-          <form className="stack" onSubmit={submitFolder}>
-            <label className="field">
-              {t('Название папки', 'Folder name')}
-              <Input
-                autoFocus
-                required
-                maxLength={100}
-                value={folderEdit.name}
-                onChange={(e) => setFolderEdit({ ...folderEdit, name: e.target.value })}
-              />
-            </label>
-            <label className="field">
-              {t('Цвет', 'Color')}
-              <Input
-                type="color"
-                value={folderEdit.color || '#007aff'}
-                onChange={(e) => setFolderEdit({ ...folderEdit, color: e.target.value })}
-              />
-            </label>
-            {folderError && (
-              <p role="alert" className="form-error">
-                {folderError}
-              </p>
-            )}
-            <div className="dialog-actions">
-              {folderEdit.id && (
-                <Button variant="danger" onClick={() => setDeleteConfirm(true)}>
-                  {t('Удалить папку', 'Delete folder')}
-                </Button>
-              )}
-              <Button type="submit" variant="primary" disabled={folderBusy}>
-                {t('Сохранить', 'Save')}
-              </Button>
-            </div>
-            {deleteConfirm && (
-              <div className="delete-confirm">
-                <p>
-                  {t(
-                    'Задачи сохранятся в разделе «Без папки». Удалить папку?',
-                    'Tasks will remain in No folder. Delete this folder?',
-                  )}
-                </p>
-                <Button variant="danger" disabled={folderBusy} onClick={removeFolder}>
-                  {t('Подтвердить удаление', 'Confirm deletion')}
-                </Button>
-              </div>
-            )}
-          </form>
-        )}
-      </Dialog>
+      <FolderEditor
+        value={folderEdit}
+        onChange={setFolderEdit}
+        onClose={() => setFolderEdit(null)}
+        onDeleted={() => setFolder('all')}
+      />
     </div>
   )
 }

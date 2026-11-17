@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { useApp } from '@/components/AppContext'
 import { Button, Dialog, Input, Select } from '@/components/ui'
+import { folderTree, folderOptions } from '@/lib/folder-shape.mjs'
 import { useTasks } from './TasksContext'
 export default function TaskEditor({ task, onClose }) {
   const { t, notify } = useApp(),
@@ -111,7 +112,7 @@ export default function TaskEditor({ task, onClose }) {
             onChange={(folderId) => change('folder_id', String(folderId))}
             options={[
               { value: '', label: t('Без папки', 'No folder') },
-              ...folders.map((f) => ({ value: f.id, label: f.name })),
+              ...folderOptions(folderTree(folders)),
             ]}
           />
         </label>

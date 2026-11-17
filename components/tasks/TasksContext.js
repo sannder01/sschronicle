@@ -43,9 +43,7 @@ export function TasksProvider({ children }) {
       method: id ? 'PATCH' : 'POST',
       body,
     })
-    const result = revealAfter
-      ? (await Promise.all([request, revealAfter]))[0]
-      : await request
+    const result = revealAfter ? (await Promise.all([request, revealAfter]))[0] : await request
     generation.current++
     setTasks((items) =>
       id ? items.map((item) => (item.id === id ? result : item)) : [result, ...items],

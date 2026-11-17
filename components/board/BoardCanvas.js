@@ -2,7 +2,8 @@
 // Board canvas: cards pinned to an infinite board and tied with red strings.
 // Physics after Apple's "Designing Fluid Interfaces": 1:1 tracking, momentum
 // projection, velocity handoff to springs, everything interruptible.
-// Data-agnostic: the page passes `items` and an `adapter` (schedule blocks or tasks).
+// Data-agnostic: the page passes `items`, an `adapter` for strings and positions, and
+// optional `structure`: fixed threads (e.g. folder → task) drawn but never cut by hand.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useApp } from '@/components/AppContext'
 import { Button, ErrorState } from '@/components/ui'
@@ -18,6 +19,7 @@ const MAX_Z = 2.4
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v))
 const restTilt = (id) => ((((Math.abs(id) * 37) % 7) - 3) * 0.8).toFixed(2) * 1
 const pinOf = (p) => ({ x: p.x + CARD_W / 2, y: p.y + PIN_Y })
+const NO_STRUCTURE = []
 
 export default function BoardCanvas({
   items: blocks,
@@ -28,6 +30,8 @@ export default function BoardCanvas({
   onToggle,
   onEdit,
   empty,
+  structure = NO_STRUCTURE,
+  canConnect,
 }) {
   const { t, notify } = useApp()
   const [links, setLinks] = useState([]),
@@ -56,7 +60,9 @@ export default function BoardCanvas({
     layoutRun = useRef(null),
     placedOnce = useRef(false),
     linksRef = useRef(links)
-  linksRef.current = links
+  // hand-tied strings plus the fixed structure threads: both are drawn and simulated
+  const allLinks = useMemo(() => [...links, ...structure], [links, structure])
+  linksRef.current = allLinks
 
   // ---------------- data: strings ----------------
   useEffect(() => {
@@ -101,8 +107,7 @@ export default function BoardCanvas({
     for (const f of fresh) pos.current.set(f.id, { x: f.x, y: f.y, r: restTilt(f.id) })
     for (const id of [...pos.current.keys()])
       if (!blocks.some((b) => b.id === id)) pos.current.delete(id)
-    const saveable = fresh.filter((f) => f.id > 0)
-    if (saveable.length) adapter.savePositions(saveable).catch(() => {})
+    if (fresh.length) adapter.savePositions(fresh).catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [blocks, loading, adapter])
 
@@ -533,6 +538,8 @@ export default function BoardCanvas({
   }
 
   async function connect(a, b) {
+    const refusal = canConnect?.(a, b)
+    if (refusal) return notify(refusal)
     const [from_id, to_id] = a < b ? [a, b] : [b, a]
     if (linksRef.current.some((l) => l.from_id === from_id && l.to_id === to_id)) return
     const temp = { id: -Date.now(), from_id, to_id }
@@ -549,6 +556,7 @@ export default function BoardCanvas({
     }
   }
   async function cut(link) {
+    if (link.fixed) return
     setLinks((list) => list.filter((l) => l.id !== link.id))
     setSelected(null)
     if (link.id < 0) return
@@ -712,12 +720,12 @@ export default function BoardCanvas({
   const neighbours = useMemo(() => {
     if (focus == null) return null
     const set = new Set([focus])
-    for (const l of links) {
+    for (const l of allLinks) {
       if (l.from_id === focus) set.add(l.to_id)
       if (l.to_id === focus) set.add(l.from_id)
     }
     return set
-  }, [focus, links])
+  }, [focus, allLinks])
   const titleOf = (id) => blocks.find((b) => b.id === id)?.title || ''
   const selectedLink = selected?.type === 'link' ? links.find((l) => l.id === selected.id) : null
 
@@ -758,14 +766,16 @@ export default function BoardCanvas({
           <div ref={nearRef} className="board-layer near" aria-hidden="true" />
           <div ref={worldRef} className="board-world">
             <svg className="board-ropes" aria-hidden="true">
-              {links.map((l) => {
+              {allLinks.map((l) => {
                 if (!ropes.current.has(l.id)) ropes.current.set(l.id, { els: {} })
                 const r = ropes.current.get(l.id)
                 const lit = neighbours ? neighbours.has(l.from_id) && neighbours.has(l.to_id) : null
                 return (
                   <g
                     key={l.id}
-                    className={`rope ${lit === false ? 'dim' : ''} ${lit ? 'lit' : ''} ${selectedLink?.id === l.id ? 'selected' : ''}`}
+                    data-from={l.from_id}
+                    data-to={l.to_id}
+                    className={`rope ${l.fixed ? 'fixed' : ''} ${lit === false ? 'dim' : ''} ${lit ? 'lit' : ''} ${selectedLink?.id === l.id ? 'selected' : ''}`}
                   >
                     <path ref={(el) => (r.els.shadow = el)} className="rope-shadow" />
                     <path ref={(el) => (r.els.string = el)} className="rope-string" />
@@ -773,7 +783,7 @@ export default function BoardCanvas({
                       ref={(el) => (r.els.hit = el)}
                       className="rope-hit"
                       onPointerDown={(e) => e.stopPropagation()}
-                      onClick={() => setSelected({ type: 'link', id: l.id })}
+                      onClick={() => !l.fixed && setSelected({ type: 'link', id: l.id })}
                     />
                   </g>
                 )
@@ -818,7 +828,7 @@ export default function BoardCanvas({
                 <div
                   key={b.id}
                   ref={(el) => (el ? cardEls.current.set(b.id, el) : cardEls.current.delete(b.id))}
-                  className={`board-card ${b.done ? 'done' : ''} ${lit === false ? 'dim' : ''} ${selected?.type === 'card' && selected.id === b.id ? 'selected' : ''} ${linkFrom === b.id ? 'link-source' : ''}`}
+                  className={`board-card ${b.kind === 'folder' ? 'folder-card' : ''} ${b.done ? 'done' : ''} ${lit === false ? 'dim' : ''} ${selected?.type === 'card' && selected.id === b.id ? 'selected' : ''} ${linkFrom === b.id ? 'link-source' : ''}`}
                   data-id={b.id}
                   data-accent={b.color && b.color !== 'accent' ? b.color : undefined}
                   style={b.tape ? { '--tape': b.tape } : undefined}
@@ -838,22 +848,29 @@ export default function BoardCanvas({
                     aria-label={b.meta ? `${b.title}, ${b.meta}` : b.title}
                     aria-describedby="board-card-help"
                   >
+                    {b.kind === 'folder' && (
+                      <span className="card-folder-icon" aria-hidden="true">
+                        <Icon name="folder" size={22} />
+                      </span>
+                    )}
                     {b.meta && <span className="card-time">{b.meta}</span>}
                     <strong className="card-title">{b.title}</strong>
                     {b.note && <span className="card-note">{b.note}</span>}
                   </button>
-                  <button
-                    className="card-check"
-                    aria-pressed={b.done}
-                    aria-label={
-                      b.done
-                        ? t('Отметить как невыполненное', 'Mark as not done')
-                        : t('Отметить как выполненное', 'Mark as done')
-                    }
-                    onClick={() => onToggle(b)}
-                  >
-                    <Icon name="check" size={12} />
-                  </button>
+                  {b.kind !== 'folder' && (
+                    <button
+                      className="card-check"
+                      aria-pressed={b.done}
+                      aria-label={
+                        b.done
+                          ? t('Отметить как невыполненное', 'Mark as not done')
+                          : t('Отметить как выполненное', 'Mark as done')
+                      }
+                      onClick={() => onToggle(b)}
+                    >
+                      <Icon name="check" size={12} />
+                    </button>
+                  )}
                 </div>
               )
             })}

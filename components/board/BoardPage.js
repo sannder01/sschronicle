@@ -1,161 +1,182 @@
 'use client'
-// Board page: one canvas, two sources — the day's schedule blocks or the task list.
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import Link from 'next/link'
+// Board page: task folders and open tasks on one cork board, Obsidian-style.
+// Folders are cards too. Nesting (task in folder, folder in folder) is drawn as
+// fixed threads; red strings tie a task to a task or a folder to a folder.
+import { useMemo, useState } from 'react'
 import { useApp } from '@/components/AppContext'
 import { useTasks } from '@/components/tasks/TasksContext'
 import { Button } from '@/components/ui'
 import Icon from '@/components/Icon'
-import { useIndicator } from '@/components/motion'
-import BlockEditor from '@/components/schedule/BlockEditor'
 import TaskEditor from '@/components/tasks/TaskEditor'
-import { fmt, parseTime, round5, DAY } from '@/components/schedule/time'
+import FolderEditor from '@/components/tasks/FolderEditor'
 import { api } from '@/lib/client'
-import { addDays, todayInZone, displayDate } from '@/lib/dates'
+import { displayDate } from '@/lib/dates'
 import BoardCanvas from './BoardCanvas'
 
-const SOURCE_KEY = 'chronicle-board-source'
+// Board node ids: tasks keep their id, folders are negative so both fit one id space.
+const folderNode = (id) => -Number(id)
+const isFolderNode = (id) => id < 0
+// Folder string ids are prefixed so they never collide with task string ids.
+const FOLDER_LINK = 'folder-link:'
+
 const chunks = (list, size) =>
   Array.from({ length: Math.ceil(list.length / size) }, (_, i) =>
     list.slice(i * size, i * size + size),
   )
+const splitPositions = (positions) => ({
+  tasks: positions.filter((p) => !isFolderNode(p.id)),
+  folders: positions.filter((p) => isFolderNode(p.id)).map((p) => ({ ...p, id: -p.id })),
+})
+const fromFolderLink = (link) => ({
+  id: FOLDER_LINK + link.id,
+  from_id: folderNode(link.to_id),
+  to_id: folderNode(link.from_id),
+})
+
+const adapter = {
+  async listLinks() {
+    const [taskLinks, folderLinks] = await Promise.all([
+      api('/api/tasks/links'),
+      api('/api/folders/links'),
+    ])
+    return [...taskLinks, ...folderLinks.map(fromFolderLink)]
+  },
+  async createLink(a, b) {
+    if (!isFolderNode(a))
+      return api('/api/tasks/links', { method: 'POST', body: { from_id: a, to_id: b } })
+    const created = await api('/api/folders/links', {
+      method: 'POST',
+      body: { from_id: -a, to_id: -b },
+    })
+    return fromFolderLink(created)
+  },
+  deleteLink(id) {
+    return typeof id === 'string' && id.startsWith(FOLDER_LINK)
+      ? api('/api/folders/links/' + id.slice(FOLDER_LINK.length), { method: 'DELETE' })
+      : api('/api/tasks/links/' + id, { method: 'DELETE' })
+  },
+  savePosition(id, x, y) {
+    return adapter.savePositions([{ id, x, y }])
+  },
+  savePositions(positions) {
+    const { tasks, folders } = splitPositions(positions)
+    return Promise.all([
+      ...chunks(tasks, 200).map((part) =>
+        api('/api/tasks/canvas', { method: 'PUT', body: { positions: part } }),
+      ),
+      ...chunks(folders, 200).map((part) =>
+        api('/api/folders/canvas', { method: 'PUT', body: { positions: part } }),
+      ),
+    ])
+  },
+}
+
+const count = (n, ru, en, t) => {
+  const mod10 = n % 10,
+    mod100 = n % 100
+  const form =
+    mod10 === 1 && mod100 !== 11
+      ? 0
+      : mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)
+        ? 1
+        : 2
+  return `${n} ${t(ru[form], n === 1 ? en[0] : en[1])}`
+}
 
 export default function BoardPage() {
-  const { t, language, settings, notify } = useApp(),
-    { tasks, folders, loading: tasksLoading, error: tasksError, reload, saveTask } = useTasks()
-  const today = todayInZone(settings.timezone)
-  const [source, setSource] = useState('schedule'),
-    [day, setDay] = useState(today),
-    [blocks, setBlocks] = useState([]),
-    [loading, setLoading] = useState(true),
-    [error, setError] = useState(null),
-    [editingBlock, setEditingBlock] = useState(null),
-    [editingTask, setEditingTask] = useState(null),
-    [shownDone, setShownDone] = useState(() => new Set()),
-    switchRef = useRef(null),
-    request = useRef(0)
+  const { t, language, notify } = useApp(),
+    { tasks, folders, loading, error, reload, saveTask } = useTasks()
+  const [editingTask, setEditingTask] = useState(null),
+    [editingFolder, setEditingFolder] = useState(null),
+    [shownDone, setShownDone] = useState(() => new Set())
 
-  // remember the last source (a per-viewer convenience)
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(SOURCE_KEY)
-      if (saved === 'tasks' || saved === 'schedule') setSource(saved)
-    } catch {}
-  }, [])
-  function pickSource(next) {
-    setSource(next)
-    try {
-      localStorage.setItem(SOURCE_KEY, next)
-    } catch {}
-  }
-  useIndicator(switchRef, '.selected', [source])
-
-  // ---------- schedule blocks ----------
-  const loadBlocks = useCallback(async (target) => {
-    const current = ++request.current
-    setLoading(true)
-    setError(null)
-    try {
-      const result = await api('/api/schedule?day=' + target)
-      if (current === request.current) setBlocks(result)
-    } catch (err) {
-      if (current === request.current) setError(err)
-    } finally {
-      if (current === request.current) setLoading(false)
-    }
-  }, [])
-  useEffect(() => {
-    if (source === 'schedule') loadBlocks(day)
-  }, [source, day, loadBlocks])
-
-  const scheduleAdapter = useMemo(
-    () => ({
-      listLinks: () => api('/api/schedule/links?day=' + day),
-      createLink: (from_id, to_id) =>
-        api('/api/schedule/links', { method: 'POST', body: { from_id, to_id } }),
-      deleteLink: (id) => api('/api/schedule/links/' + id, { method: 'DELETE' }),
-      savePosition: (id, x, y) =>
-        api('/api/schedule/' + id, { method: 'PATCH', body: { canvas_x: x, canvas_y: y } }),
-      savePositions: (positions) =>
-        Promise.all(
-          chunks(positions, 60).map((part) =>
-            api('/api/schedule/canvas', { method: 'PUT', body: { day, positions: part } }),
-          ),
-        ),
-    }),
-    [day],
-  )
-  const taskAdapter = useMemo(
-    () => ({
-      listLinks: () => api('/api/tasks/links'),
-      createLink: (from_id, to_id) =>
-        api('/api/tasks/links', { method: 'POST', body: { from_id, to_id } }),
-      deleteLink: (id) => api('/api/tasks/links/' + id, { method: 'DELETE' }),
-      savePosition: (id, x, y) =>
-        api('/api/tasks/canvas', { method: 'PUT', body: { positions: [{ id, x, y }] } }),
-      savePositions: (positions) =>
-        Promise.all(
-          chunks(positions, 200).map((part) =>
-            api('/api/tasks/canvas', { method: 'PUT', body: { positions: part } }),
-          ),
-        ),
-    }),
-    [],
+  const visibleTasks = useMemo(
+    () => tasks.filter((task) => !task.completed || shownDone.has(task.id)),
+    [tasks, shownDone],
   )
 
   // ---------- items for the canvas ----------
-  const blockItems = useMemo(
-    () =>
-      blocks.map((b) => ({
-        id: b.id,
-        title: b.title,
-        meta: `${fmt(b.start_min)} – ${fmt(b.end_min)}`,
-        note: b.note,
-        color: b.color,
-        done: b.done,
-        canvas_x: b.canvas_x,
-        canvas_y: b.canvas_y,
-        raw: b,
-      })),
-    [blocks],
-  )
-  const taskItems = useMemo(
-    () =>
-      tasks
-        .filter((task) => !task.completed || shownDone.has(task.id))
-        .map((task) => {
-          const folder = folders.find((f) => f.id === task.folder_id)
-          const due = task.due_date
-            ? displayDate(task.due_date.slice(0, 10), language) +
-              (task.due_time ? ', ' + task.due_time : '')
-            : ''
-          const important = task.priority === 'high' ? t('Важная', 'Important') : ''
-          return {
-            id: task.id,
-            title: task.title,
-            meta: [due, important].filter(Boolean).join(' · '),
-            note: folder?.name || '',
-            tape: folder?.color,
-            done: Boolean(task.completed),
-            canvas_x: task.canvas_x == null ? null : Number(task.canvas_x),
-            canvas_y: task.canvas_y == null ? null : Number(task.canvas_y),
-            raw: task,
-          }
-        }),
-    [tasks, folders, shownDone, language, t],
-  )
+  const items = useMemo(() => {
+    const byId = new Map(folders.map((f) => [Number(f.id), f]))
+    const folderItems = folders.map((f) => {
+      const openTasks = tasks.filter((x) => x.folder_id === f.id && !x.completed).length,
+        subfolders = folders.filter((x) => x.parent_id === f.id).length
+      const parent = f.parent_id != null ? byId.get(Number(f.parent_id)) : null
+      return {
+        id: folderNode(f.id),
+        kind: 'folder',
+        title: f.name,
+        meta: [
+          openTasks ? count(openTasks, ['задача', 'задачи', 'задач'], ['task', 'tasks'], t) : '',
+          subfolders
+            ? count(subfolders, ['папка', 'папки', 'папок'], ['folder', 'folders'], t)
+            : '',
+        ]
+          .filter(Boolean)
+          .join(', '),
+        note: parent ? t('в папке «', 'in “') + parent.name + t('»', '”') : '',
+        tape: f.color,
+        done: false,
+        canvas_x: f.canvas_x == null ? null : Number(f.canvas_x),
+        canvas_y: f.canvas_y == null ? null : Number(f.canvas_y),
+        raw: f,
+      }
+    })
+    const taskItems = visibleTasks.map((task) => {
+      const folder = byId.get(Number(task.folder_id))
+      const due = task.due_date
+        ? displayDate(task.due_date.slice(0, 10), language) +
+          (task.due_time ? ', ' + task.due_time : '')
+        : ''
+      const important = task.priority === 'high' ? t('Важная', 'Important') : ''
+      return {
+        id: task.id,
+        kind: 'task',
+        title: task.title,
+        meta: [due, important].filter(Boolean).join(', '),
+        note: '',
+        tape: folder?.color,
+        done: Boolean(task.completed),
+        canvas_x: task.canvas_x == null ? null : Number(task.canvas_x),
+        canvas_y: task.canvas_y == null ? null : Number(task.canvas_y),
+        raw: task,
+      }
+    })
+    return [...folderItems, ...taskItems]
+  }, [folders, tasks, visibleTasks, language, t])
+
+  // Nesting is drawn, not tied by hand: folder → subfolder, folder → task.
+  const structure = useMemo(() => {
+    const folderIds = new Set(folders.map((f) => Number(f.id)))
+    return [
+      ...folders
+        .filter((f) => f.parent_id != null && folderIds.has(Number(f.parent_id)))
+        .map((f) => ({
+          id: 'nest-folder:' + f.id,
+          from_id: folderNode(f.parent_id),
+          to_id: folderNode(f.id),
+          fixed: true,
+        })),
+      ...visibleTasks
+        .filter((task) => task.folder_id != null && folderIds.has(Number(task.folder_id)))
+        .map((task) => ({
+          id: 'nest-task:' + task.id,
+          from_id: folderNode(task.folder_id),
+          to_id: task.id,
+          fixed: true,
+        })),
+    ]
+  }, [folders, visibleTasks])
+
+  const canConnect = (a, b) =>
+    isFolderNode(a) !== isFolderNode(b)
+      ? t(
+          'Нить связывает задачу с задачей или папку с папкой. Чтобы положить задачу в папку, откройте задачу и выберите папку.',
+          'A string ties a task to a task or a folder to a folder. To put a task in a folder, open the task and pick the folder.',
+        )
+      : null
 
   // ---------- actions ----------
-  async function toggleBlock(item) {
-    const b = item.raw
-    setBlocks((list) => list.map((x) => (x.id === b.id ? { ...x, done: !b.done } : x)))
-    try {
-      await api('/api/schedule/' + b.id, { method: 'PATCH', body: { done: !b.done } })
-    } catch {
-      setBlocks((list) => list.map((x) => (x.id === b.id ? b : x)))
-      notify(t('Не удалось сохранить изменения', 'Could not save changes'), 'error')
-    }
-  }
   async function toggleTask(item) {
     // keep a just-finished task on the board (dimmed) until the page is left
     setShownDone((set) => new Set(set).add(item.id))
@@ -165,187 +186,54 @@ export default function BoardPage() {
       notify(t('Не удалось сохранить задачу', 'Could not save the task'), 'error')
     }
   }
-  function editBlock(item) {
-    const b = item.raw
-    setEditingBlock({
-      id: b.id,
-      title: b.title,
-      start: fmt(b.start_min),
-      end: fmt(b.end_min),
-      color: b.color,
-      note: b.note || '',
-      done: b.done,
-      original: b,
-    })
-  }
-  async function saveBlock(draft) {
-    const start = parseTime(draft.start),
-      end = draft.end === '00:00' ? DAY : parseTime(draft.end)
-    const body = {
-      title: draft.title.trim(),
-      start_min: round5(start),
-      end_min: round5(end),
-      color: draft.color,
-      note: draft.note.trim() || null,
-    }
-    setEditingBlock(null)
-    try {
-      if (draft.id == null) {
-        const created = await api('/api/schedule', { method: 'POST', body: { day, ...body } })
-        setBlocks((list) => [...list, created])
-      } else {
-        const updated = await api('/api/schedule/' + draft.id, {
-          method: 'PATCH',
-          body: { ...body, done: draft.done },
-        })
-        setBlocks((list) => list.map((b) => (b.id === draft.id ? updated : b)))
-      }
-    } catch {
-      notify(t('Не удалось сохранить блок', 'Could not save the block'), 'error')
-    }
-  }
-  async function deleteBlock(b) {
-    setEditingBlock(null)
-    setBlocks((list) => list.filter((x) => x.id !== b.id))
-    try {
-      await api('/api/schedule/' + b.id, { method: 'DELETE' })
-    } catch {
-      loadBlocks(day)
-    }
+  function edit(item) {
+    if (item.kind === 'folder') setEditingFolder({ ...item.raw })
+    else setEditingTask(item.raw)
   }
 
-  const isSchedule = source === 'schedule'
   return (
     <div className="page board-page">
       <header className="board-header">
         <div>
-          <p className="eyebrow">
-            {isSchedule
-              ? displayDate(day, language, { weekday: 'long', day: 'numeric', month: 'long' })
-              : t('Все активные задачи', 'All open tasks')}
-          </p>
+          <p className="eyebrow">{t('Папки и задачи', 'Folders and tasks')}</p>
           <h1>{t('Доска', 'Board')}</h1>
         </div>
         <div className="board-day-nav">
-          <div
-            ref={switchRef}
-            className="segmented has-indicator board-source"
-            role="group"
-            aria-label={t('Что на доске', 'What is on the board')}
-          >
-            {[
-              ['schedule', 'Расписание', 'Schedule'],
-              ['tasks', 'Задачи', 'Tasks'],
-            ].map(([key, ru, en]) => (
-              <button
-                key={key}
-                aria-pressed={source === key}
-                className={source === key ? 'selected' : ''}
-                onClick={() => pickSource(key)}
-              >
-                {t(ru, en)}
-              </button>
-            ))}
-          </div>
-          {isSchedule && (
-            <>
-              <button
-                className="icon-button"
-                aria-label={t('Предыдущий день', 'Previous day')}
-                onClick={() => setDay(addDays(day, -1))}
-              >
-                <Icon name="back" size={18} />
-              </button>
-              <Button disabled={day === today} onClick={() => setDay(today)}>
-                {t('Сегодня', 'Today')}
-              </Button>
-              <button
-                className="icon-button"
-                aria-label={t('Следующий день', 'Next day')}
-                onClick={() => setDay(addDays(day, 1))}
-              >
-                <Icon name="chevron" size={18} />
-              </button>
-            </>
-          )}
-          <Button
-            variant="primary"
-            onClick={() =>
-              isSchedule
-                ? setEditingBlock({
-                    id: null,
-                    title: '',
-                    start: '09:00',
-                    end: '10:00',
-                    color: 'accent',
-                    note: '',
-                    done: false,
-                  })
-                : setEditingTask({})
-            }
-          >
+          <Button onClick={() => setEditingFolder({ name: '', color: '#007aff', parent_id: null })}>
+            <Icon name="folder" size={18} />
+            {t('Новая папка', 'New folder')}
+          </Button>
+          <Button variant="primary" onClick={() => setEditingTask({})}>
             <Icon name="plus" size={18} />
-            {isSchedule ? t('Новый блок', 'New block') : t('Новая задача', 'New task')}
+            {t('Новая задача', 'New task')}
           </Button>
         </div>
       </header>
 
-      {isSchedule ? (
-        <BoardCanvas
-          key={'schedule-' + day}
-          items={blockItems}
-          loading={loading}
-          error={error}
-          onRetry={() => loadBlocks(day)}
-          adapter={scheduleAdapter}
-          onToggle={toggleBlock}
-          onEdit={editBlock}
-          empty={
-            <>
-              <h2>{t('На доске пусто', 'The board is empty')}</h2>
-              <p className="muted">
-                {t(
-                  'Добавьте блоки в расписание дня, и они появятся здесь карточками.',
-                  'Add blocks to the day schedule and they will show up here as cards.',
-                )}
-              </p>
-              <Link className="button button-secondary" href="/app/schedule">
-                {t('Открыть расписание', 'Open the schedule')}
-              </Link>
-            </>
-          }
-        />
-      ) : (
-        <BoardCanvas
-          key="tasks"
-          items={taskItems}
-          loading={tasksLoading}
-          error={tasksError}
-          onRetry={reload}
-          adapter={taskAdapter}
-          onToggle={toggleTask}
-          onEdit={(item) => setEditingTask(item.raw)}
-          empty={
-            <>
-              <h2>{t('Активных задач нет', 'No open tasks')}</h2>
-              <p className="muted">
-                {t(
-                  'Создайте задачу, и её можно будет связать с другими нитями.',
-                  'Create a task and tie it to others with strings.',
-                )}
-              </p>
-            </>
-          }
-        />
-      )}
-
-      <BlockEditor
-        value={editingBlock}
-        t={t}
-        onClose={() => setEditingBlock(null)}
-        onDelete={deleteBlock}
-        onSave={saveBlock}
+      <BoardCanvas
+        key="tasks"
+        items={items}
+        structure={structure}
+        canConnect={canConnect}
+        loading={loading}
+        error={error}
+        onRetry={reload}
+        adapter={adapter}
+        onToggle={toggleTask}
+        onEdit={edit}
+        empty={
+          <>
+            <h2>{t('На доске пусто', 'The board is empty')}</h2>
+            <p className="muted">
+              {t(
+                'Создайте папку или задачу. Папки можно вкладывать друг в друга и связывать нитями.',
+                'Create a folder or a task. Folders nest inside each other and tie together with strings.',
+              )}
+            </p>
+          </>
+        }
       />
+
       {editingTask && (
         <TaskEditor
           key={editingTask.id || 'new'}
@@ -353,6 +241,11 @@ export default function BoardPage() {
           onClose={() => setEditingTask(null)}
         />
       )}
+      <FolderEditor
+        value={editingFolder}
+        onChange={setEditingFolder}
+        onClose={() => setEditingFolder(null)}
+      />
     </div>
   )
 }

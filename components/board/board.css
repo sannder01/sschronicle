@@ -209,6 +209,53 @@
   border-radius: 6px 6px 0 0;
   background: var(--tape, var(--accent));
 }
+/* Folder cards: a manila folder with a tab in the folder's colour. */
+.board-card.folder-card {
+  border-radius: 3px 8px 8px 8px;
+  background: linear-gradient(170deg, #f4dfa6, #ecd08a);
+}
+.board-card.folder-card::before {
+  left: 0;
+  right: auto;
+  top: -11px;
+  width: 92px;
+  height: 14px;
+  border-radius: 7px 9px 0 0;
+  background: color-mix(in srgb, var(--tape, #d9b45f) 70%, #ecd08a);
+  clip-path: polygon(0 100%, 0 25%, 6% 0, 82% 0, 100% 100%);
+}
+.folder-card .card-body {
+  color: #3d2f12;
+  padding-right: 14px;
+}
+.folder-card .card-title {
+  font-size: 17px;
+}
+.folder-card .card-time {
+  color: #6d5626;
+  order: 2;
+}
+.card-folder-icon {
+  display: flex;
+  color: color-mix(in srgb, var(--tape, #b48a2f) 80%, #3d2f12);
+  margin-bottom: 2px;
+}
+/* Nesting threads: thin and calm, so hand-tied red strings stay the loud ones. */
+.rope.fixed .rope-string {
+  stroke: #f7f1e3;
+  stroke-width: 1.6;
+  stroke-dasharray: 1 5;
+}
+.rope.fixed .rope-shadow {
+  opacity: 0.5;
+}
+.rope.fixed .rope-hit {
+  pointer-events: none;
+}
+.rope.fixed:hover .rope-string {
+  stroke-width: 1.6;
+  filter: none;
+}
 .board-card:hover {
   box-shadow:
     0 1px 1px rgb(0 0 0 / 8%),
@@ -401,6 +448,10 @@
   position: absolute;
   right: 18px;
   bottom: 28px;
+  /* stays clear of the zoom toolbar in the middle */
+  max-width: clamp(120px, calc(50% - 200px), 240px);
+  text-align: right;
+  line-height: 1.45;
   z-index: 7;
   font-size: 11px;
   color: #fff8ec;

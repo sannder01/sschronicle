@@ -1223,7 +1223,17 @@ small {
 .folder-row {
   display: flex;
   align-items: center;
-  padding: 0 10px 0 17px;
+  /* nested folders step in, like a file tree */
+  padding: 0 10px 0 calc(17px + var(--depth, 0) * 16px);
+  border-radius: 10px;
+  margin: 0 6px;
+}
+.folder-row.selected {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.folder-row.selected > button:first-child span:nth-child(2) {
+  color: var(--accent);
+  font-weight: 600;
 }
 .folder-row > button:first-child {
   display: flex;

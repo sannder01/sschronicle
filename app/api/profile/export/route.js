@@ -29,6 +29,7 @@ export const GET = api(async (req, context, { user }) => {
       'schedule_blocks',
       'schedule_links',
       'task_links',
+      'folder_links',
     ]) {
       result[table] = (
         await client.query('SELECT * FROM ' + table + ' WHERE user_id=$1 ORDER BY id', [user.id])

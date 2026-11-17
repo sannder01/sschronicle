@@ -26,3 +26,10 @@ export async function call(api, path, method = 'GET', data, status = 200) {
   return response.json()
 }
 export const unique = (label) => `${label} ${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+
+/** Picks an option in the site's own Select (a combobox button with a listbox). */
+export async function choose(page, combobox, option) {
+  await combobox.click()
+  await page.getByRole('listbox').getByRole('option', { name: option, exact: true }).click()
+  await expect(page.getByRole('listbox')).toHaveCount(0)
+}

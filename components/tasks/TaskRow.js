@@ -27,7 +27,9 @@ export default function TaskRow({ task, onEdit }) {
   }
   const folder = folders.find((f) => f.id === task.folder_id)
   return (
-    <div className={`task-row ${task.completed ? 'is-completed' : ''} ${celebrating ? 'is-celebrating' : ''}`}>
+    <div
+      className={`task-row ${task.completed ? 'is-completed' : ''} ${celebrating ? 'is-celebrating' : ''}`}
+    >
       <button
         className={`task-check ${task.completed || celebrating ? 'checked' : ''} ${celebrating ? 'celebrating' : ''}`}
         onClick={complete}

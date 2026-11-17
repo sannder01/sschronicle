@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { login, unique, baseURL } from './helpers'
+import { login, unique, baseURL, choose } from './helpers'
 import { todayInZone } from '../../lib/dates'
 
 test.beforeEach(async ({ context }) => login(context))
@@ -19,8 +19,8 @@ test('task and folder UI, calendar editing, persistence and browser history', as
   await page.getByLabel('Название', { exact: true }).fill(title)
   await page.getByLabel('Дата', { exact: true }).fill(today)
   await page.getByLabel('Время', { exact: true }).fill('15:45')
-  await page.getByRole('combobox', { name: 'Приоритет', exact: true }).selectOption('high')
-  await page.getByRole('combobox', { name: 'Папка', exact: true }).selectOption({ label: folder })
+  await choose(page, page.getByRole('combobox', { name: 'Приоритет', exact: true }), 'Высокий')
+  await choose(page, page.getByRole('combobox', { name: 'Папка', exact: true }), folder)
   await page.getByRole('dialog').getByRole('button', { name: 'Сохранить', exact: true }).click()
   await expect(page.getByText(title, { exact: true })).toBeVisible()
   await page.getByRole('link', { name: 'Календарь', exact: true }).click()
@@ -142,7 +142,7 @@ test('challenge UI template, success mark and daily note', async ({ page }) => {
 test('habit UI creation, check-in, history and deletion', async ({ page }) => {
   const name = unique('Читать каждый день')
   await page.goto('/app/habits')
-  await page.getByRole('button', { name: '+ Новая привычка', exact: true }).click()
+  await page.getByRole('button', { name: 'Новая привычка', exact: true }).click()
   await page.getByLabel('Название', { exact: true }).fill(name)
   await page.getByRole('dialog').getByRole('button', { name: 'Сохранить', exact: true }).click()
   const card = page.locator('.habit-card').filter({ hasText: name })
@@ -165,14 +165,14 @@ test('profile UI preferences persist on reload and sign-out protects private pag
 }) => {
   await login(context, 'b')
   await page.goto('/app/profile')
-  await page.getByLabel('Тема', { exact: false }).selectOption('dark')
+  await choose(page, page.getByRole('combobox', { name: /Тема/ }), 'Тёмная')
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
   await page.reload()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
-  await page.getByRole('combobox', { name: 'Язык', exact: true }).selectOption('en')
+  await choose(page, page.getByRole('combobox', { name: 'Язык', exact: true }), 'English')
   await expect(page.getByRole('heading', { name: 'Make it yours.', exact: true })).toBeVisible()
-  await page.getByRole('combobox', { name: 'Language', exact: true }).selectOption('ru')
-  await page.getByLabel('Тема', { exact: false }).selectOption('light')
+  await choose(page, page.getByRole('combobox', { name: 'Language', exact: true }), 'Русский')
+  await choose(page, page.getByRole('combobox', { name: /Тема/ }), 'Светлая')
   await page.getByRole('button', { name: 'Выйти', exact: true }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Подтвердить', exact: true }).click()
   await expect(page).toHaveURL(/\/auth$/)

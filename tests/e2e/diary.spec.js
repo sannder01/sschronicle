@@ -75,7 +75,7 @@ test('diary API enforces authentication, ownership, calendar dates and atomic ve
   expect((await request.get('/api/diary')).status()).toBe(401)
   const a = await client(playwright), b = await client(playwright, 'b')
   const path = '/api/diary/2091-03-12'
-  const original = { ...emptyDiary(), text: 'Private diary A', cards: [{ id: 'small-note', text: 'A little joy', color: 'sage' }], strokes: [{ id: 'drawing', color: 'blue', width: 4, points: [[0.1, 0.2], [0.8, 0.9]] }] }
+  const original = { ...emptyDiary(), text: 'Private diary A', cards: [{ id: 'small-note', text: 'A little joy', color: 'yellow' }], strokes: [{ id: 'drawing', color: 'blue', width: 4, points: [[0.1, 0.2], [0.8, 0.9]] }] }
   expect((await a.get('/api/diary/2026-02-30')).status()).toBe(400)
   expect((await a.get('/api/diary/0000-01-01')).status()).toBe(400)
   expect((await a.put(path, { headers: { Origin: 'https://elsewhere.test' }, data: { version: 0, document: original } })).status()).toBe(403)

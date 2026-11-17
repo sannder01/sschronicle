@@ -1,6 +1,7 @@
 import { api, json, readJson } from '@/lib/api'
-import { query } from '@/lib/db'
+import { query, transaction } from '@/lib/db'
 import { text, oneOf, hexColor } from '@/lib/validation'
+import { validateFolderParent } from '@/lib/folder-tree'
 export const dynamic = 'force-dynamic'
 export const GET = api(async (req, context, { user }) => {
   const params = new URL(req.url).searchParams
@@ -21,9 +22,16 @@ export const POST = api(async (req, context, { user }) => {
   const emoji = text(body.emoji ?? body.icon ?? '📁', { field: 'icon', max: 20 })
   const color = hexColor(body.color ?? '#007aff')
   const type = oneOf(body.entity_type ?? body.entityType ?? 'task', ['task', 'note'], 'entity_type')
-  const { rows } = await query(
-    'INSERT INTO folders(user_id,name,emoji,color,entity_type) VALUES($1,$2,$3,$4,$5) RETURNING *',
-    [user.id, name, emoji, color, type],
-  )
-  return json({ ...rows[0], icon: rows[0].emoji }, 201)
+  const row = await transaction(async (client) => {
+    // Only task folders nest; note folders stay flat.
+    await client.query('SELECT id FROM users WHERE id=$1 FOR UPDATE', [user.id])
+    const parent =
+      type === 'task' ? await validateFolderParent(client, user.id, body.parent_id) : null
+    const { rows } = await client.query(
+      'INSERT INTO folders(user_id,name,emoji,color,entity_type,parent_id) VALUES($1,$2,$3,$4,$5,$6) RETURNING *',
+      [user.id, name, emoji, color, type, parent],
+    )
+    return rows[0]
+  })
+  return json({ ...row, icon: row.emoji }, 201)
 })
