@@ -1,21 +1,24 @@
 /* ---------- Day board (detective wall) ---------- */
 .board-page {
-  --board-bg: #efe9df;
-  --board-dot: rgb(120 100 70 / 22%);
-  --board-far: rgb(140 115 80 / 10%);
-  --board-near: rgb(110 90 60 / 9%);
+  --board-bg: #c79c6b;
+  --cork-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='d' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.3' numOctaves='3' seed='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.27  0 0 0 0 0.15  0 0 0 0 0.05  4.2 0 0 0 -2.25'/%3E%3C/filter%3E%3Cfilter id='l' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.36' numOctaves='2' seed='11' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.86  0 0 0 0 0.71  0 0 0 0 0.5  0 3.4 0 0 -1.95'/%3E%3C/filter%3E%3Cfilter id='f' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='1' seed='5' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.3  0 0 0 0 0.18  0 0 0 0 0.08  0 0 3 0 -1.45'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3Crect width='100%25' height='100%25' filter='url(%23d)'/%3E%3Crect width='100%25' height='100%25' filter='url(%23l)'/%3E%3C/svg%3E");
+  --cork-mottle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='640'%3E%3Cfilter id='m' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.006' numOctaves='3' seed='9' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.35  0 0 0 0 0.2  0 0 0 0 0.08  1.6 0 0 0 -0.62'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23m)'/%3E%3C/svg%3E");
+  --frame: #8a5a32;
+  --frame-dark: #5c3a1e;
   --string: #d0342c;
   --string-glow: rgb(208 52 44 / 35%);
   --card-bg: #fffdf8;
+  --card-ink: #2b2925;
+  --card-soft: #6f685c;
 }
 [data-theme='dark'] .board-page {
-  --board-bg: #1c1a17;
-  --board-dot: rgb(255 240 210 / 9%);
-  --board-far: rgb(255 230 190 / 5%);
-  --board-near: rgb(255 230 190 / 6%);
+  /* Cork in a dim room: same board, lower light. */
+  --board-bg: #8e6b46;
+  --frame: #5e3d22;
+  --frame-dark: #3b2512;
   --string: #ff5a4e;
   --string-glow: rgb(255 90 78 / 40%);
-  --card-bg: #2a2825;
+  --card-bg: #f3ecdd;
 }
 .board-header {
   display: flex;
@@ -38,16 +41,25 @@
 .board {
   position: relative;
   height: clamp(460px, calc(100dvh - 190px), 1100px);
-  border-radius: 20px;
+  border-radius: 16px;
   overflow: hidden;
+  /* wooden frame drawn outside the cork so pointer maths keep the same origin */
+  margin: 12px;
   touch-action: none;
   cursor: grab;
   isolation: isolate;
   background-color: var(--board-bg);
-  background-image: radial-gradient(circle, var(--board-dot) 1px, transparent 1.4px);
+  background-image: var(--cork-grain), var(--cork-mottle);
+  background-size:
+    220px 220px,
+    640px 640px;
   box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--border) 70%, transparent),
-    inset 0 2px 30px rgb(0 0 0 / 6%);
+    inset 0 0 0 1px var(--frame-dark),
+    inset 0 3px 10px rgb(40 20 5 / 45%),
+    inset 0 0 70px rgb(60 30 5 / 30%),
+    0 0 0 12px var(--frame),
+    0 0 0 13px var(--frame-dark),
+    0 18px 34px -10px rgb(30 15 0 / 50%);
   -webkit-user-select: none;
   user-select: none;
 }
@@ -65,16 +77,9 @@
   pointer-events: none;
   z-index: -1;
 }
-.board-layer.far {
-  background-image:
-    radial-gradient(circle at 30% 40%, var(--board-far) 0 18px, transparent 19px),
-    radial-gradient(circle at 75% 70%, var(--board-far) 0 10px, transparent 11px);
-}
+.board-layer.far,
 .board-layer.near {
-  background-image:
-    radial-gradient(circle at 20% 30%, var(--board-near) 0 2px, transparent 2.5px),
-    radial-gradient(circle at 60% 80%, var(--board-near) 0 1.5px, transparent 2px),
-    radial-gradient(circle at 85% 20%, var(--board-near) 0 2.5px, transparent 3px);
+  display: none;
 }
 .board-world {
   position: absolute;
@@ -274,7 +279,7 @@
   align-content: start;
   padding: 20px 34px 14px 14px;
   text-align: left;
-  color: var(--text);
+  color: var(--card-ink);
   cursor: inherit;
   border-radius: 6px;
 }
@@ -295,7 +300,7 @@
 }
 .card-note {
   font-size: 12px;
-  color: var(--muted);
+  color: var(--card-soft);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -353,6 +358,12 @@
   max-width: 340px;
   font-size: 14px;
 }
+/* Text sits straight on the cork, so it gets a light ink and a soft shadow. */
+.board-empty h3,
+.board-empty p {
+  color: #fff8ec;
+  text-shadow: 0 1px 3px rgb(40 20 0 / 70%);
+}
 .board-toolbar {
   position: absolute;
   left: 50%;
@@ -392,7 +403,8 @@
   bottom: 28px;
   z-index: 7;
   font-size: 11px;
-  color: var(--muted);
+  color: #fff8ec;
+  text-shadow: 0 1px 2px rgb(40 20 0 / 60%);
   pointer-events: none;
 }
 

@@ -122,8 +122,9 @@ export default function BoardCanvas({
     }
     layer(farRef.current, 0.25, 180)
     layer(nearRef.current, 0.6, 90)
-    board.style.backgroundPosition = `${x}px ${y}px`
-    board.style.backgroundSize = `${28 * z}px ${28 * z}px`
+    // cork grain and its larger mottling move and scale with the board, like a real surface
+    board.style.backgroundPosition = `${x}px ${y}px, ${x}px ${y}px`
+    board.style.backgroundSize = `${220 * z}px ${220 * z}px, ${640 * z}px ${640 * z}px`
     if (zoomLabel.current) zoomLabel.current.textContent = Math.round(z * 100) + '%'
   }, [])
 
