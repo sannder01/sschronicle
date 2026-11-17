@@ -56,6 +56,24 @@ const paths = {
     </>
   ),
   plus: <path d="M12 5v14M5 12h14" />,
+  minus: <path d="M5 12h14" />,
+  graph: (
+    <>
+      <circle cx="6" cy="6" r="2.5" />
+      <circle cx="18" cy="8" r="2.5" />
+      <circle cx="9" cy="18" r="2.5" />
+      <path d="M8.3 7.1 15.7 7.6M7 8.3 8.4 15.6M16.4 10 10.8 16.3" />
+    </>
+  ),
+  board: (
+    <>
+      <rect x="3" y="4" width="18" height="16" rx="2.5" />
+      <circle cx="8" cy="9" r="1.2" />
+      <circle cx="16" cy="9.5" r="1.2" />
+      <circle cx="11" cy="15.5" r="1.2" />
+      <path d="M8 9c3 2 5 1.5 8 .5M8 9c.5 3 1.5 5 3 6.5" />
+    </>
+  ),
   close: <path d="m6 6 12 12M6 18 18 6" />,
   search: (
     <>

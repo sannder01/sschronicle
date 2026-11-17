@@ -27,6 +27,8 @@ export const GET = api(async (req, context, { user }) => {
       'challenge_attempts',
       'challenge_entries',
       'schedule_blocks',
+      'schedule_links',
+      'task_links',
     ]) {
       result[table] = (
         await client.query('SELECT * FROM ' + table + ' WHERE user_id=$1 ORDER BY id', [user.id])

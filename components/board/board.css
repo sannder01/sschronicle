@@ -1,0 +1,432 @@
+/* ---------- Day board (detective wall) ---------- */
+.board-page {
+  --board-bg: #efe9df;
+  --board-dot: rgb(120 100 70 / 22%);
+  --board-far: rgb(140 115 80 / 10%);
+  --board-near: rgb(110 90 60 / 9%);
+  --string: #d0342c;
+  --string-glow: rgb(208 52 44 / 35%);
+  --card-bg: #fffdf8;
+}
+[data-theme='dark'] .board-page {
+  --board-bg: #1c1a17;
+  --board-dot: rgb(255 240 210 / 9%);
+  --board-far: rgb(255 230 190 / 5%);
+  --board-near: rgb(255 230 190 / 6%);
+  --string: #ff5a4e;
+  --string-glow: rgb(255 90 78 / 40%);
+  --card-bg: #2a2825;
+}
+.board-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.board-day-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.board-day-nav .button-primary {
+  margin-left: 8px;
+}
+
+.board {
+  position: relative;
+  height: clamp(460px, calc(100dvh - 190px), 1100px);
+  border-radius: 20px;
+  overflow: hidden;
+  touch-action: none;
+  cursor: grab;
+  isolation: isolate;
+  background-color: var(--board-bg);
+  background-image: radial-gradient(circle, var(--board-dot) 1px, transparent 1.4px);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--border) 70%, transparent),
+    inset 0 2px 30px rgb(0 0 0 / 6%);
+  -webkit-user-select: none;
+  user-select: none;
+}
+.board:active {
+  cursor: grabbing;
+}
+.board:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+/* parallax layers: slower and softer than the board, so depth reads while panning */
+.board-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+}
+.board-layer.far {
+  background-image:
+    radial-gradient(circle at 30% 40%, var(--board-far) 0 18px, transparent 19px),
+    radial-gradient(circle at 75% 70%, var(--board-far) 0 10px, transparent 11px);
+}
+.board-layer.near {
+  background-image:
+    radial-gradient(circle at 20% 30%, var(--board-near) 0 2px, transparent 2.5px),
+    radial-gradient(circle at 60% 80%, var(--board-near) 0 1.5px, transparent 2px),
+    radial-gradient(circle at 85% 20%, var(--board-near) 0 2.5px, transparent 3px);
+}
+.board-world {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+/* strings */
+.board-ropes {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  overflow: visible;
+  z-index: 3;
+  pointer-events: none;
+}
+.board-ropes path {
+  fill: none;
+  stroke-linecap: round;
+}
+.rope {
+  transition: opacity 260ms ease;
+}
+.rope-string {
+  stroke: var(--string);
+  stroke-width: 2.2;
+  transition:
+    stroke-width 220ms var(--spring),
+    filter 220ms ease;
+}
+.rope-shadow {
+  stroke: rgb(0 0 0 / 18%);
+  stroke-width: 3;
+  transform: translate(2px, 5px);
+  filter: blur(1.5px);
+}
+.rope-hit {
+  stroke: transparent;
+  stroke-width: 18;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+.rope.dim {
+  opacity: 0.16;
+}
+.rope.lit .rope-string {
+  stroke-width: 3;
+}
+.rope.selected .rope-string,
+.rope-hit:hover + .rope-string,
+.rope:hover .rope-string {
+  stroke-width: 3.4;
+  filter: drop-shadow(0 0 5px var(--string-glow));
+}
+.rope-temp {
+  stroke: var(--string);
+  stroke-width: 2.4;
+  stroke-dasharray: 2 6;
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+.rope-temp[data-visible='true'] {
+  opacity: 0.9;
+}
+.rope-cut {
+  position: absolute;
+  left: -15px;
+  top: -15px;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--string);
+  color: #fff;
+  box-shadow: 0 4px 14px var(--string-glow);
+  animation: cut-pop 360ms var(--spring-bounce) both;
+}
+.rope-cut::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+}
+@keyframes cut-pop {
+  from {
+    scale: 0.3;
+    opacity: 0;
+  }
+}
+
+/* cards */
+.board-card {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 2;
+  width: 210px;
+  min-height: 112px;
+  border-radius: 6px;
+  background: var(--card-bg);
+  /* tilt pivots around the pin, like a card hanging on it */
+  transform-origin: 50% 10px;
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 8%),
+    0 6px 16px rgb(60 40 10 / 12%);
+  cursor: grab;
+  scale: 1;
+  transition:
+    opacity 260ms ease,
+    filter 260ms ease,
+    box-shadow 260ms ease,
+    scale 360ms var(--spring);
+}
+.board-card::before {
+  /* coloured tape across the top */
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 5px;
+  border-radius: 6px 6px 0 0;
+  background: var(--tape, var(--accent));
+}
+.board-card:hover {
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 8%),
+    0 10px 24px rgb(60 40 10 / 16%);
+}
+.board-card[data-lifted] {
+  z-index: 5;
+  scale: 1.05;
+  cursor: grabbing;
+  box-shadow:
+    0 2px 4px rgb(0 0 0 / 10%),
+    0 24px 48px rgb(40 25 5 / 26%);
+}
+.board-card.dim {
+  opacity: 0.38;
+  filter: saturate(0.5);
+}
+.board-card.selected {
+  box-shadow:
+    0 0 0 2px var(--accent),
+    0 10px 26px rgb(60 40 10 / 18%);
+}
+.board-card[data-target] {
+  scale: 1.04;
+  box-shadow:
+    0 0 0 2px var(--string),
+    0 0 26px var(--string-glow);
+}
+.board-card.link-source {
+  animation: link-pulse 1.4s ease-in-out infinite;
+}
+@keyframes link-pulse {
+  50% {
+    box-shadow:
+      0 0 0 3px var(--string),
+      0 0 22px var(--string-glow);
+  }
+}
+.board.is-linking .board-card:not(.link-source) {
+  cursor: crosshair;
+}
+.board-pin {
+  pointer-events: all;
+  cursor: crosshair;
+  transition: opacity 260ms ease;
+}
+.board-pin.dim {
+  opacity: 0.4;
+}
+.pin-hit {
+  fill: transparent;
+}
+.pin-head {
+  fill: url(#pin-head);
+  filter: drop-shadow(0 2px 2px rgb(0 0 0 / 35%));
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: scale 320ms var(--spring-bounce);
+}
+.board-pin:hover .pin-head {
+  scale: 1.25;
+}
+.card-body {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  min-height: 112px;
+  align-content: start;
+  padding: 20px 34px 14px 14px;
+  text-align: left;
+  color: var(--text);
+  cursor: inherit;
+  border-radius: 6px;
+}
+.card-body:not(:disabled):active {
+  transform: none;
+}
+.card-time {
+  font-size: 11px;
+  color: color-mix(in srgb, var(--accent) 70%, var(--muted));
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.card-title {
+  font-size: 15px;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+.card-note {
+  font-size: 12px;
+  color: var(--muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.card-check {
+  position: absolute;
+  right: 10px;
+  top: 16px;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1.5px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  color: transparent;
+  transition:
+    background-color 200ms ease,
+    color 200ms ease,
+    transform 320ms var(--spring-bounce);
+}
+.card-check::after {
+  content: '';
+  position: absolute;
+  inset: -12px;
+}
+.card-check[aria-pressed='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+.board-card.done .card-body {
+  opacity: 0.6;
+}
+.board-card.done .card-title {
+  text-decoration: line-through;
+}
+
+/* overlays */
+.board-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  padding: 24px;
+  text-align: center;
+  pointer-events: none;
+}
+.board-empty > * {
+  pointer-events: auto;
+}
+.board-empty p {
+  max-width: 340px;
+  font-size: 14px;
+}
+.board-toolbar {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  z-index: 8;
+  translate: -50% 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 14px;
+  cursor: default;
+}
+.zoom-label {
+  min-width: 58px;
+  min-height: 44px;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  border-radius: 10px;
+}
+.zoom-label:hover {
+  background: var(--surface-2);
+}
+.toolbar-sep {
+  width: 1px;
+  height: 24px;
+  margin: 0 4px;
+  background: var(--border);
+}
+.board-toolbar .button-ghost {
+  padding: 8px 12px;
+}
+.board-hint {
+  position: absolute;
+  right: 18px;
+  bottom: 28px;
+  z-index: 7;
+  font-size: 11px;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+@media (max-width: 1100px) {
+  .board-hint {
+    display: none;
+  }
+}
+@media (max-width: 800px) {
+  .board {
+    height: calc(100dvh - 260px);
+    min-height: 420px;
+    border-radius: 16px;
+  }
+  .board-day-nav {
+    width: 100%;
+  }
+  .board-day-nav .button-primary {
+    margin-left: auto;
+  }
+  .board-toolbar {
+    bottom: 12px;
+  }
+}
+.board-source button {
+  min-height: 38px;
+  padding: 6px 14px;
+  font-size: 13px;
+}
+@media (max-width: 800px) {
+  .board-source {
+    flex: 1 1 100%;
+  }
+  .board-source button {
+    flex: 1;
+  }
+}

@@ -2,6 +2,57 @@
 import { forwardRef, useEffect, useId, useRef, useState } from 'react'
 import Icon from './Icon'
 import { motionReduced } from './motion'
+import { Drawer } from 'vaul'
+
+/** Phones get a bottom sheet (vaul): drag it down to close, with rubber-band physics. */
+function useIsPhone() {
+  const [phone, setPhone] = useState(false)
+  useEffect(() => {
+    const media = matchMedia('(max-width: 640px)'),
+      update = () => setPhone(media.matches)
+    update()
+    media.addEventListener('change', update)
+    return () => media.removeEventListener('change', update)
+  }, [])
+  return phone
+}
+export function Dialog(props) {
+  return useIsPhone() ? <SheetDialog {...props} /> : <ModalDialog {...props} />
+}
+function SheetDialog({ open, title, onClose, children, className = '' }) {
+  return (
+    <Drawer.Root
+      open={open}
+      dismissible={Boolean(onClose)}
+      onOpenChange={(next) => {
+        if (!next) onClose?.()
+      }}
+    >
+      <Drawer.Portal>
+        <Drawer.Overlay className="sheet-overlay" />
+        <Drawer.Content className={`sheet ${className}`} aria-describedby={undefined}>
+          <div className="sheet-handle" aria-hidden="true" />
+          <div className="dialog-body">
+            <header className="dialog-header">
+              <Drawer.Title asChild>
+                <h2>{title}</h2>
+              </Drawer.Title>
+              <Button
+                variant="ghost"
+                aria-label="Закрыть / Close"
+                onClick={onClose}
+                disabled={!onClose}
+              >
+                <Icon name="close" />
+              </Button>
+            </header>
+            {children}
+          </div>
+        </Drawer.Content>
+      </Drawer.Portal>
+    </Drawer.Root>
+  )
+}
 export const Button = forwardRef(function Button(
   { variant = 'secondary', className = '', children, ...props },
   ref,
@@ -15,7 +66,7 @@ export const Button = forwardRef(function Button(
 export const Input = forwardRef(function Input({ className = '', ...props }, ref) {
   return <input ref={ref} className={`input ${className}`} {...props} />
 })
-export function Dialog({ open, title, onClose, children, className = '' }) {
+function ModalDialog({ open, title, onClose, children, className = '' }) {
   const ref = useRef(null),
     titleId = useId(),
     [rendered, setRendered] = useState(open)
@@ -88,7 +139,7 @@ export function LoadingState({ label = 'Загрузка / Loading' }) {
   return (
     <div className="loading-state" role="status">
       <span className="spinner" />
-      {label}
+      <span className="text-shimmer">{label}</span>
     </div>
   )
 }

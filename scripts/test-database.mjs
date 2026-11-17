@@ -23,7 +23,7 @@ try {
   await Promise.all([migrateTestDatabase(freshUrl), migrateTestDatabase(freshUrl)])
   assert.equal(
     (await fresh.query('SELECT COUNT(*)::int AS count FROM schema_migrations')).rows[0].count,
-    6,
+    8,
   )
   const expected = [
     'users',
@@ -40,6 +40,8 @@ try {
     'challenge_attempts',
     'challenge_entries',
     'schedule_blocks',
+    'schedule_links',
+    'task_links',
     'telegram_link_tokens',
     'tg_connections',
   ]
@@ -145,4 +147,3 @@ try {
   await Promise.allSettled(clients.map((client) => client.end()))
   await cluster.stop()
 }
-

@@ -1,6 +1,7 @@
 'use client'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '@/lib/client'
+import { Toaster, toast } from 'sonner'
 import { ACCENT_KEYS } from './accents'
 const AppContext = createContext(null)
 const defaults = {
@@ -14,8 +15,7 @@ const defaults = {
 export function AppProvider({ initialUser, initialProfile = null, children }) {
   const [profile, setProfileState] = useState(initialProfile),
     [profileError, setProfileError] = useState(null),
-    [toast, setToast] = useState(null),
-    timer = useRef(),
+    [resolvedTheme, setResolvedTheme] = useState('light'),
     request = useRef(0)
   const setProfile = useCallback((value) => {
     request.current++
@@ -50,6 +50,7 @@ export function AppProvider({ initialUser, initialProfile = null, children }) {
         setTimeout(() => root.classList.remove('accent-transition'), 450)
       }
       root.dataset.theme = next
+      setResolvedTheme(next)
     }
     apply()
     media.addEventListener('change', apply)
@@ -73,15 +74,11 @@ export function AppProvider({ initialUser, initialProfile = null, children }) {
     }
     root.dataset.accent = accent
   }, [accent, settings.animations])
+  // Toasts by sonner: stacked, swipe to dismiss, spring physics
   const notify = useCallback((message, type = 'success') => {
-    clearTimeout(timer.current)
-    setToast({ message, type, id: Date.now() })
-    timer.current = setTimeout(() => {
-      setToast((current) => current && { ...current, leaving: true })
-      timer.current = setTimeout(() => setToast(null), 260)
-    }, 4700)
+    if (type === 'error') toast.error(message)
+    else toast.success(message)
   }, [])
-  useEffect(() => () => clearTimeout(timer.current), [])
   const language = settings.language,
     t = useCallback((ru, en) => (language === 'en' ? (en ?? ru) : ru), [language])
   const value = useMemo(
@@ -101,15 +98,16 @@ export function AppProvider({ initialUser, initialProfile = null, children }) {
   return (
     <AppContext.Provider value={value}>
       {children}
-      {toast && (
-        <div
-          key={toast.id}
-          className={`toast glass ${toast.type} ${toast.leaving ? 'leaving' : ''}`}
-          role="status"
-        >
-          {toast.message}
-        </div>
-      )}
+      <Toaster
+        position="bottom-center"
+        theme={resolvedTheme}
+        offset={28}
+        mobileOffset={{ bottom: 'calc(96px + env(safe-area-inset-bottom))' }}
+        gap={8}
+        visibleToasts={3}
+        duration={4000}
+        toastOptions={{ className: 'chronicle-toast' }}
+      />
     </AppContext.Provider>
   )
 }

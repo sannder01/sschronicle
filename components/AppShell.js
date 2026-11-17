@@ -12,6 +12,7 @@ const navigation = [
   ['habits', 'Привычки', 'Habits'],
   ['challenges', 'Челленджи', 'Challenges'],
   ['schedule', 'Расписание', 'Schedule'],
+  ['board', 'Доска', 'Board'],
   ['calendar', 'Календарь', 'Calendar'],
   ['notes', 'Заметки', 'Notes'],
   ['diary', 'Дневник', 'Diary'],
@@ -76,9 +77,9 @@ export default function AppShell({ children }) {
           className="has-indicator"
           aria-label={t('Основная навигация', 'Main navigation')}
         >
-          {navigation.slice(0, 7).map((item) => navLink(item))}
+          {navigation.slice(0, 8).map((item) => navLink(item))}
           <div className="nav-divider" />
-          {navigation.slice(7).map((item) => navLink(item))}
+          {navigation.slice(8).map((item) => navLink(item))}
         </nav>
         <div className="sidebar-bottom">
           <div className="sidebar-note">
@@ -125,10 +126,12 @@ export default function AppShell({ children }) {
         </main>
       </div>
       <nav className="mobile-nav glass" aria-label={t('Нижняя навигация', 'Bottom navigation')}>
-        {[navigation[0], navigation[1], navigation[4]].map((item) => navLink(item, true))}
+        {['tasks', 'habits', 'notes']
+          .map((key) => navigation.find(([k]) => k === key))
+          .map((item) => navLink(item, true))}
         <Button
           variant="ghost"
-          className={`nav-link ${['schedule', 'challenges', 'calendar', 'diary', 'progress', 'profile'].some(active) ? 'active' : ''}`}
+          className={`nav-link ${['schedule', 'board', 'challenges', 'calendar', 'diary', 'progress', 'profile'].some(active) ? 'active' : ''}`}
           onClick={() => setMore(true)}
           aria-expanded={more}
         >
