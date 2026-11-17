@@ -91,21 +91,12 @@
 .diary-section-heading h3 { font-family: Georgia, 'Times New Roman', serif; font-size: 21px; font-weight: 400; margin-top: 6px; }
 .diary-section-heading > .button { font-size: 11px; padding: 8px 11px; min-height: 34px; flex-shrink: 0; }
 .diary-memories { margin-bottom: 38px; }
-.diary-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-.diary-card, .diary-add-card { border-radius: 3px 3px 13px 3px; min-width: 0; min-height: 190px; padding: 14px 17px 12px; }
-.diary-card { box-shadow: 0 3px 6px #25201a04; border: 1px solid #80808012; display: flex; flex-direction: column; }
-.diary-card-sand { background: var(--diary-sand-card); }
-.diary-card-sage { background: var(--diary-sage-card); }
-.diary-card-rose { background: var(--diary-rose-card); }
-.diary-card-lavender { background: var(--diary-lavender-card); }
+.diary-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 26px 22px; padding: 14px 4px 6px; }
+.diary-card, .diary-add-card { min-width: 0; min-height: 190px; padding: 14px 17px 12px; }
+.diary-add-card { border-radius: 3px; }
 .diary-card-header { display: flex; justify-content: space-between; align-items: center; }
 .diary-card-header > span { font-size: 9px; letter-spacing: 1px; opacity: 0.5; }
-.diary-card-header .button { padding: 3px; min-height: 24px; color: var(--diary-ink); opacity: 0.6; }
-.diary-card textarea { color: var(--diary-ink); width: 100%; background: transparent; border: 0; border-radius: 0; padding: 10px 0; resize: vertical; min-height: 125px; font-size: 14px; line-height: 1.8; }
-.diary-card textarea::placeholder { color: var(--diary-ink); opacity: 0.5; }
 .diary-card-colors { display: flex; gap: 8px; margin-top: auto; padding-top: 8px; }
-.diary-card-color { height: 19px; width: 19px; cursor: pointer; border-radius: 50%; border: 1px solid #80808050; }
-.diary-card-color[aria-pressed='true'] { outline: 1px solid var(--diary-ink); outline-offset: 2px; }
 .diary-add-card { cursor: pointer; display: flex; flex-direction: column; gap: 14px; align-items: center; justify-content: center; border: 1px dashed var(--diary-paper-border); background: transparent; color: var(--diary-soft-text); }
 .diary-add-card:hover { background: var(--diary-sand-card); }
 .diary-add-card > span { font-size: 11px; line-height: 1.6; text-align: center; }
@@ -177,7 +168,7 @@
   .diary-binding { left: 6px; }
   .diary-binding i { width: 7px; height: 7px; }
   .diary-kicker { font-size: 8px; letter-spacing: 1.1px; }
-  .diary-cards { gap: 10px; }
+  .diary-cards { gap: 24px 12px; }
   .diary-card, .diary-add-card { padding: 10px; min-height: 165px; }
   .diary-card textarea { font-size: 13px; min-height: 110px; }
   .diary-moods { gap: 9px; }
@@ -194,4 +185,76 @@
 @media (max-width: 360px) {
   .diary-cards { grid-template-columns: minmax(0, 1fr); }
   .diary-moods button > span { display: none; }
+}
+
+/* Sticky notes: real paper in both themes, slightly crumpled, held by a clip, pin or tape. */
+.sticky {
+  --paper: #f9e27d;
+  --paper-light: #fdf3ad;
+  --paper-edge: #e9c955;
+  --sticky-ink: #3d3420;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  color: var(--sticky-ink);
+  border-radius: 2px;
+  transform: rotate(var(--tilt, 0deg));
+  background: linear-gradient(160deg, var(--paper) 0%, var(--paper) 45%, var(--paper-light) 100%);
+  box-shadow:
+    0 1px 1px rgb(60 45 0 / 0.12),
+    0 10px 18px -8px rgb(40 30 0 / 0.35);
+  transition: transform 220ms cubic-bezier(0.3, 1.4, 0.5, 1), box-shadow 220ms ease;
+}
+.sticky:focus-within {
+  transform: rotate(0deg) translateY(-2px);
+  box-shadow:
+    0 1px 1px rgb(60 45 0 / 0.12),
+    0 18px 28px -10px rgb(40 30 0 / 0.4);
+}
+/* Crumpled paper: lit noise multiplied over the paper colour. */
+.sticky::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='c'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.018' numOctaves='5' seed='7'/%3E%3CfeDiffuseLighting lighting-color='%23fff' surfaceScale='3'%3E%3CfeDistantLight azimuth='225' elevation='58'/%3E%3C/feDiffuseLighting%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23c)'/%3E%3C/svg%3E") center / 100% 100%;
+  mix-blend-mode: multiply;
+  opacity: 0.32;
+  pointer-events: none;
+}
+.sticky > * { position: relative; }
+.sticky-white::before { opacity: 0.22; }
+.sticky-white {
+  --paper: #fbfaf6;
+  --paper-light: #ffffff;
+  --paper-edge: #e4e0d6;
+  --sticky-ink: #33363b;
+}
+.sticky .diary-card-header > span { opacity: 0.45; }
+.sticky .diary-card-header .button { padding: 3px; min-height: 24px; color: var(--sticky-ink); opacity: 0.55; }
+.sticky textarea { color: var(--sticky-ink); width: 100%; background: transparent; border: 0; border-radius: 0; padding: 10px 0; resize: none; min-height: 125px; font-size: 15px; line-height: 1.75; }
+.sticky textarea::placeholder { color: var(--sticky-ink); opacity: 0.45; }
+.diary-card-color { height: 19px; width: 19px; cursor: pointer; border-radius: 50%; border: 1px solid #0000002e; }
+.diary-card-color.diary-card-yellow { background: #f8e27c; }
+.diary-card-color.diary-card-white { background: #fbfaf6; }
+.diary-card-color[aria-pressed='true'] { outline: 1.5px solid currentColor; outline-offset: 2px; }
+
+/* Paper clip over the top-left edge. */
+.sticky .sticky-clip { position: absolute; top: -20px; left: 46px; width: 22px; height: 54px; color: #3b7fd6; filter: drop-shadow(1px 1px 0 #0003); pointer-events: none; }
+/* Push pin, top right. */
+.sticky .sticky-pin { position: absolute; top: -16px; left: calc(50% - 17px); width: 34px; height: 34px; filter: drop-shadow(1px 2px 1px #0004); pointer-events: none; }
+/* Torn strip of tape across the top. */
+.sticky .sticky-tape {
+  position: absolute; top: -11px; left: 50%; width: 92px; height: 26px; transform: translateX(-50%) rotate(-3deg);
+  background: rgb(246 240 220 / 0.82); box-shadow: 0 1px 2px #0002;
+  clip-path: polygon(0 8%, 6% 0, 12% 10%, 20% 2%, 28% 9%, 37% 0, 46% 8%, 55% 1%, 64% 9%, 73% 0, 82% 8%, 91% 1%, 100% 9%, 100% 92%, 93% 100%, 85% 91%, 76% 100%, 67% 92%, 58% 100%, 49% 91%, 40% 100%, 31% 92%, 22% 100%, 13% 91%, 5% 100%, 0 92%);
+  pointer-events: none;
+}
+/* Curled bottom-right corner: the page shows through, the flap casts a shadow. */
+.sticky.is-curl::after {
+  content: ''; position: absolute; right: 0; bottom: 0; width: 34px; height: 34px;
+  background: linear-gradient(315deg, var(--diary-paper) 50%, var(--paper-edge) 50%, var(--paper-light) 80%);
+  box-shadow: -2px -2px 4px rgb(60 45 0 / 0.18);
+  border-radius: 0 0 0 6px;
+  pointer-events: none;
 }

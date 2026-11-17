@@ -72,6 +72,11 @@ test('validation preserves plain text and bounded vector strokes and strips unkn
   assert.deepEqual(result.strokes[0].points, [[0.12346, 1], [0, 0]])
   assert.notEqual(result.cards, document.cards)
 })
+test('legacy pastel note colours become yellow sticky notes', () => {
+  const result = validateDiary({ ...emptyDiary(), cards: [{ id: 'a', color: 'sage', text: '' }, { id: 'b', color: 'white', text: '' }] })
+  assert.deepEqual(result.cards.map((card) => card.color), ['yellow', 'white'])
+  assert.throws(() => validateDiary({ ...emptyDiary(), cards: [{ id: 'c', color: 'green', text: '' }] }))
+})
 test('validation rejects unsafe shapes and excessive rendering work', () => {
   const bad = [null, [], { ...emptyDiary(), paper: 'html' }, { ...emptyDiary(), mood: {} }, { ...emptyDiary(), text: 'a'.repeat(LIMITS.text + 1) }, { ...emptyDiary(), cards: [{ id: '<svg>', text: '', color: 'sand' }] }, { ...emptyDiary(), strokes: [{ id: 'x', color: 'url(https://example.test)', width: 4, points: [[0, 0]] }] }, { ...emptyDiary(), strokes: [{ id: 'x', color: 'ink', width: 4, points: [[Infinity, 0]] }] }, { ...emptyDiary(), strokes: [{ id: 'x', color: 'ink', width: 4, points: [[-0.1, 0]] }] }, { ...emptyDiary(), cards: [{ id: 'x', color: 'sand', text: '' }, { id: 'x', color: 'rose', text: '' }] }, { ...emptyDiary(), strokes: Array.from({ length: 11 }, (_, i) => ({ id: `s${i}`, color: 'ink', width: 2, points: Array.from({ length: 2000 }, () => [0, 0]) })) }]
   for (const value of bad) assert.throws(() => validateDiary(value))

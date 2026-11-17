@@ -7,7 +7,7 @@ import { Button, ErrorState, LoadingState } from '@/components/ui'
 import Icon from '@/components/Icon'
 import { api } from '@/lib/client'
 import { addDays, displayDate, todayInZone } from '@/lib/dates'
-import { CARD_COLORS, LIMITS, MOODS, PAPERS, validDiaryDate } from '@/lib/diary/format.mjs'
+import { CARD_COLORS, LIMITS, MOODS, PAPERS, validDiaryDate, cardColor } from '@/lib/diary/format.mjs'
 import { DiaryWriter } from '@/lib/diary/autosave.mjs'
 import DiaryDrawing from './DiaryDrawing'
 import DiaryPhotos from './DiaryPhotos'
@@ -81,7 +81,7 @@ function DiaryEntry({ day, userId, language, t, onSaved }) {
   const updateCard = (id, patch) => update({ cards: doc.cards.map((card) => card.id === id ? { ...card, ...patch } : card) })
   const addCard = () => {
     if (doc.cards.length >= LIMITS.cards) return
-    update({ cards: [...doc.cards, { id: crypto.randomUUID(), text: '', color: CARD_COLORS[doc.cards.length % CARD_COLORS.length] }] })
+    update({ cards: [...doc.cards, { id: crypto.randomUUID(), text: '', color: 'yellow' }] })
     requestAnimationFrame(() => cardsRef.current?.querySelector('.diary-card:last-child textarea')?.focus())
   }
   const status = state.status === 'saved' ? (state.version ? t('Все изменения сохранены', 'All changes saved') : t('Новая страница', 'A fresh page'))
@@ -125,11 +125,12 @@ function DiaryEntry({ day, userId, language, t, onSaved }) {
             <Button onClick={addCard} disabled={doc.cards.length >= LIMITS.cards}><Icon name="plus" size={16} />{t('Заметка', 'Note')}</Button>
           </div>
           <div className="diary-cards" ref={cardsRef}>
-            {doc.cards.map((card, index) => <div key={card.id} className={`diary-card diary-card-${card.color}`}>
+            {doc.cards.map((card, index) => { const look = stickyLook(card.id); return <div key={card.id} className={`diary-card sticky sticky-${cardColor(card.color)} is-${look.decor}`} style={{ '--tilt': look.tilt + 'deg' }}>
+              <StickyDecor decor={look.decor} />
               <div className="diary-card-header"><span>{String(index + 1).padStart(2, '0')}</span><Button variant="ghost" aria-label={t(`Удалить заметку ${index + 1}`, `Delete note ${index + 1}`)} onClick={() => update({ cards: doc.cards.filter((item) => item.id !== card.id) })}><Icon name="close" size={15} /></Button></div>
               <textarea aria-label={t(`Маленькая заметка ${index + 1}`, `Little note ${index + 1}`)} value={card.text} placeholder={t('Мысль, идея или маленькая радость…', 'A thought, an idea, a small joy…')} maxLength={LIMITS.cardText} onChange={(e) => updateCard(card.id, { text: e.target.value })} />
-              <div className="diary-card-colors" role="group" aria-label={t(`Цвет заметки ${index + 1}`, `Note ${index + 1} color`)}>{CARD_COLORS.map((color, i) => <button key={color} type="button" className={`diary-card-color diary-card-${color}`} aria-label={[t('Песочный', 'Sand'), t('Шалфей', 'Sage'), t('Розовый', 'Rose'), t('Лаванда', 'Lavender')][i]} aria-pressed={card.color === color} onClick={() => updateCard(card.id, { color })} />)}</div>
-            </div>)}
+              <div className="diary-card-colors" role="group" aria-label={t(`Цвет заметки ${index + 1}`, `Note ${index + 1} color`)}>{CARD_COLORS.map((color, i) => <button key={color} type="button" className={`diary-card-color diary-card-${color}`} aria-label={[t('Жёлтый', 'Yellow'), t('Белый', 'White')][i]} aria-pressed={cardColor(card.color) === color} onClick={() => updateCard(card.id, { color })} />)}</div>
+            </div> })}
             {!doc.cards.length && <button type="button" className="diary-add-card" onClick={addCard}><Icon name="plus" size={24} /><span>{t('Сохранить маленькую мысль', 'Keep a little thought')}</span></button>}
           </div>
         </section>
@@ -199,4 +200,22 @@ export default function DiaryWorkspace() {
       </div>
     </div>
   )
+}
+
+const DECORS = ['clip', 'pin', 'tape', 'curl']
+/** A stable look per note: the same note keeps its pin and tilt across reloads. */
+function stickyLook(id) {
+  let hash = 2166136261
+  for (const char of id) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619)
+  hash ^= hash >>> 15
+  hash = Math.imul(hash, 2246822507) >>> 0
+  return { decor: DECORS[hash % DECORS.length], tilt: (((hash >>> 8) % 7) - 3) * 0.55 }
+}
+function StickyDecor({ decor }) {
+  if (decor === 'clip')
+    return <svg className="sticky-clip" viewBox="0 0 28 64" aria-hidden="true"><path d="M9 20V8a5 5 0 0 1 10 0v38a8 8 0 0 1-16 0V14" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" /></svg>
+  if (decor === 'pin')
+    return <svg className="sticky-pin" viewBox="0 0 40 40" aria-hidden="true"><ellipse cx="17" cy="35" rx="8" ry="2.5" fill="#0003" /><path d="M20 22 16 34" stroke="#7a7f86" strokeWidth="2" strokeLinecap="round" /><circle cx="22" cy="15" r="10" fill="#e3262b" /><circle cx="22" cy="15" r="10" fill="url(#pin-shine)" /><defs><radialGradient id="pin-shine" cx="0.35" cy="0.3" r="0.7"><stop offset="0" stopColor="#fff" stopOpacity="0.75" /><stop offset="0.35" stopColor="#fff" stopOpacity="0" /><stop offset="1" stopColor="#600" stopOpacity="0.35" /></radialGradient></defs></svg>
+  if (decor === 'tape') return <span className="sticky-tape" aria-hidden="true" />
+  return null
 }
