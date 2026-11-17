@@ -906,7 +906,15 @@ export default function BoardCanvas({
                   'Нажмите на карточку, чтобы связать. Esc — отмена',
                   'Click a card to tie. Esc cancels',
                 )
-              : t('Тяните за булавку, чтобы протянуть нить', 'Drag a pin to tie a string')}
+              : selectedLink
+                ? t(
+                    'Нажмите ×  или Delete, чтобы убрать нить',
+                    'Press × or Delete to remove the string',
+                  )
+                : t(
+                    'Тяните за булавку, чтобы протянуть нить. Нажмите на нить, чтобы её убрать',
+                    'Drag a pin to tie a string. Click a string to remove it',
+                  )}
           </p>
         </div>
       )}
