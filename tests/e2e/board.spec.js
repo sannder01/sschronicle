@@ -16,7 +16,7 @@ const dragTo = async (page, fromLocator, toLocator) => {
   await page.mouse.up()
 }
 
-test('board: nested folders, folder strings, task strings, no schedule', async ({
+test('graph: nested folders, folder links, task links, no schedule', async ({
   page,
   playwright,
 }) => {
@@ -48,58 +48,61 @@ test('board: nested folders, folder strings, task strings, no schedule', async (
   await expect(page.getByRole('heading', { name: 'Доска', exact: true })).toBeVisible()
   // the schedule is no longer on the board
   await expect(page.getByRole('button', { name: 'Расписание', exact: true })).toHaveCount(0)
-  const card = (id) => page.locator(`.board-card[data-id="${id}"]`)
-  const workCard = card(-work.id),
-    projectCard = card(-project.id),
-    homeCard = card(-home.id),
-    taskCard = card(task.id)
-  await expect(workCard).toHaveClass(/folder-card/)
-  await expect(projectCard).toBeVisible()
-  await expect(taskCard).toBeVisible()
+  const node = (id) => page.locator(`.graph-node[data-node="${id}"]`)
+  const dot = (id) => node(id).locator('.graph-dot')
+  await expect(node(-work.id)).toHaveClass(/folder/)
+  await expect(node(-project.id)).toBeVisible()
+  await expect(node(task.id)).toBeVisible()
   // nesting is drawn: Работа → Проект → task
   await expect(
-    page.locator(`.rope.fixed[data-from="${-work.id}"][data-to="${-project.id}"]`),
+    page.locator(`.graph-edge.fixed[data-from="${-work.id}"][data-to="${-project.id}"]`),
   ).toHaveCount(1)
   await expect(
-    page.locator(`.rope.fixed[data-from="${-project.id}"][data-to="${task.id}"]`),
+    page.locator(`.graph-edge.fixed[data-from="${-project.id}"][data-to="${task.id}"]`),
   ).toHaveCount(1)
-  await expect
-    .poll(async () => (await call(api, '/api/folders')).filter((f) => f.canvas_x != null).length)
-    .toBeGreaterThanOrEqual(3)
+  await page.waitForTimeout(1500) // let the layout settle
 
-  // connect two folders: drag from a side handle onto the other card
-  await dragTo(
-    page,
-    page.locator(`.board-handle[data-id="${-work.id}"][data-side="right"]`),
-    homeCard,
-  )
+  // link two folders: Shift+drag from one dot onto the other
+  await page.keyboard.down('Shift')
+  await dragTo(page, dot(-work.id), dot(-home.id))
+  await page.keyboard.up('Shift')
   const tied = async () =>
     (await call(api, '/api/folders/links')).filter(
       (l) => l.from_id === Math.min(work.id, home.id) && l.to_id === Math.max(work.id, home.id),
     ).length
   await expect.poll(tied).toBe(1)
 
-  // a task cannot be tied to a folder by hand
-  await taskCard.locator('.card-body').focus()
-  await page.keyboard.press('l')
-  await homeCard.locator('.card-body').click()
+  // a task cannot be linked to a folder by hand
+  await page.waitForTimeout(800)
+  await page.keyboard.down('Shift')
+  await dragTo(page, dot(task.id), dot(-home.id))
+  await page.keyboard.up('Shift')
   await page.waitForTimeout(400)
   expect(await tied()).toBe(1)
   expect((await call(api, '/api/tasks/links')).some((l) => l.from_id === task.id)).toBe(false)
 
-  // remove the folder edge: click it, then the remove button
+  // remove the folder link: click the line, then the remove button
+  await page.waitForTimeout(800)
   const point = await page
-    .locator(`.rope:not(.fixed)[data-from="${-home.id}"] .rope-hit`)
+    .locator(
+      `.graph-edge:not(.fixed)[data-to="${-home.id}"], .graph-edge:not(.fixed)[data-from="${-home.id}"]`,
+    )
+    .locator('.graph-hit')
     .first()
-    .evaluate((path) => {
-      // near the start: edges run under cards, so the middle may be covered
-      const p = path.getPointAtLength(Math.min(30, path.getTotalLength() / 2)),
-        m = path.getScreenCTM()
+    .evaluate((line) => {
+      const len = line.getTotalLength(),
+        p = line.getPointAtLength(len * 0.5),
+        m = line.getScreenCTM()
       return { x: p.x * m.a + p.y * m.c + m.e, y: p.x * m.b + p.y * m.d + m.f }
     })
   await page.mouse.click(point.x, point.y)
-  await page.getByRole('button', { name: 'Убрать нить' }).click()
+  await page.getByRole('button', { name: 'Убрать связь' }).click()
   await expect.poll(tied).toBe(0)
+
+  // clicking a dot opens the task
+  await dot(task.id).click()
+  await expect(page.getByRole('dialog')).toBeVisible()
+  await page.keyboard.press('Escape')
 
   // deleting a folder moves its contents up a level
   await call(api, '/api/folders/' + project.id, 'DELETE')
@@ -108,10 +111,7 @@ test('board: nested folders, folder strings, task strings, no schedule', async (
   expect(errors).toEqual([])
 })
 
-test('board: tie two tasks, finished tasks leave on the next visit', async ({
-  page,
-  playwright,
-}) => {
+test('graph: link two tasks, finished tasks hidden by the filter', async ({ page, playwright }) => {
   const errors = []
   page.on('pageerror', (error) => errors.push(error.message))
   const api = await client(playwright)
@@ -121,21 +121,15 @@ test('board: tie two tasks, finished tasks leave on the next visit', async ({
 
   await page.goto('/app/board')
   await expect(page.getByRole('button', { name: 'Новая задача' })).toBeVisible()
-  const cardOne = page.locator(`.board-card[data-id="${one.id}"]`),
-    cardTwo = page.locator(`.board-card[data-id="${two.id}"]`)
-  await expect(cardOne).toBeVisible()
-  await expect(cardTwo).toBeVisible()
-  await expect
-    .poll(async () => {
-      const list = await call(api, '/api/tasks')
-      return [one, two].every((x) => list.find((t) => t.id === x.id).canvas_x != null)
-    })
-    .toBe(true)
+  const node = (id) => page.locator(`.graph-node[data-node="${id}"]`)
+  const dot = (id) => node(id).locator('.graph-dot')
+  await expect(node(one.id)).toBeVisible()
+  await expect(node(two.id)).toBeVisible()
+  await page.waitForTimeout(1500)
 
-  // tie with the keyboard: L on one, click the other
-  await cardOne.locator('.card-body').focus()
-  await page.keyboard.press('l')
-  await cardTwo.locator('.card-body').click()
+  await page.keyboard.down('Shift')
+  await dragTo(page, dot(one.id), dot(two.id))
+  await page.keyboard.up('Shift')
   await expect
     .poll(async () =>
       (await call(api, '/api/tasks/links')).some(
@@ -144,15 +138,14 @@ test('board: tie two tasks, finished tasks leave on the next visit', async ({
     )
     .toBe(true)
 
-  // finishing a task keeps it on the board, dimmed
-  await cardOne.getByRole('button', { name: 'Отметить как выполненное' }).click()
-  await expect(cardOne).toHaveClass(/done/)
-  await expect
-    .poll(async () => (await call(api, '/api/tasks')).find((t) => t.id === one.id).completed)
-    .toBe(true)
-
+  // finished tasks are hidden unless the filter shows them
+  await call(api, '/api/tasks/' + one.id, 'PATCH', { completed: true })
   await page.reload()
-  await expect(cardTwo).toBeVisible()
-  await expect(cardOne).toHaveCount(0) // done tasks leave the board on the next visit
+  await expect(node(two.id)).toBeVisible()
+  await expect(node(one.id)).toHaveCount(0)
+  await page.getByRole('button', { name: 'Настройки графа' }).click()
+  await page.getByRole('switch', { name: 'Выполненные задачи' }).check()
+  await expect(node(one.id)).toHaveClass(/done/)
+  await page.getByRole('switch', { name: 'Выполненные задачи' }).uncheck()
   expect(errors).toEqual([])
 })

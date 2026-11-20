@@ -23,6 +23,7 @@
     "@tiptap/pm": "3.31.4",
     "@tiptap/react": "3.31.4",
     "@tiptap/starter-kit": "3.31.4",
+    "d3-force": "^3.0.1",
     "next": "15.5.24",
     "next-auth": "^4.24.7",
     "pg": "^8.12.0",

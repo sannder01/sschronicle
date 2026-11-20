@@ -1,0 +1,332 @@
+/* ---------- Graph view (Obsidian graph style) ---------- */
+.board-page {
+  --graph-bg: #ffffff;
+  --graph-node: #8e8e93;
+  --graph-line: #d8d8dc;
+  --graph-text: #2e2e33;
+  --graph-focus: #7f6df2;
+}
+[data-theme='dark'] .board-page {
+  --graph-bg: #1e1e1e;
+  --graph-node: #9b9ba1;
+  --graph-line: #3d3d42;
+  --graph-text: #dadada;
+  --graph-focus: #a68af9;
+}
+.board-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.board-day-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.board-day-nav .button-primary {
+  margin-left: 8px;
+}
+
+.graph {
+  position: relative;
+  height: clamp(460px, calc(100dvh - 190px), 1100px);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+  background: var(--graph-bg);
+  isolation: isolate;
+}
+.graph-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  cursor: grab;
+  -webkit-user-select: none;
+  user-select: none;
+  --label-opacity: 1;
+}
+.graph-canvas:active {
+  cursor: grabbing;
+}
+.graph-canvas:focus-visible {
+  outline: 2px solid var(--graph-focus);
+  outline-offset: -2px;
+}
+
+/* lines */
+.graph-line {
+  stroke: var(--graph-line);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  transition:
+    stroke 160ms ease,
+    opacity 160ms ease;
+}
+.graph-hit {
+  stroke: transparent;
+  stroke-width: 14;
+  vector-effect: non-scaling-stroke;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+.has-hover .graph-edge:not(.lit) .graph-line {
+  opacity: 0.25;
+}
+.graph-edge.lit .graph-line,
+.graph-edge:hover .graph-line {
+  stroke: var(--graph-focus);
+}
+.graph-edge.selected .graph-line {
+  stroke: var(--graph-focus);
+  stroke-width: 3;
+}
+.graph-arrow {
+  fill: var(--graph-line);
+}
+.graph-temp {
+  stroke: var(--graph-focus);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 4;
+  vector-effect: non-scaling-stroke;
+  opacity: 0;
+  pointer-events: none;
+}
+.graph-temp[data-visible='true'] {
+  opacity: 1;
+}
+
+/* nodes */
+.graph-node {
+  cursor: pointer;
+  outline: none;
+  transition: opacity 160ms ease;
+}
+.graph-hit-node {
+  fill: transparent;
+}
+.graph-dot {
+  fill: var(--node-color, var(--graph-node));
+  transition:
+    fill 160ms ease,
+    r 200ms ease;
+}
+.graph-node.done .graph-dot {
+  fill: transparent;
+  stroke: var(--graph-node);
+  stroke-width: 1.5;
+}
+.graph-node.focus .graph-dot,
+.graph-node:focus-visible .graph-dot {
+  fill: var(--graph-focus);
+}
+.graph-node.match .graph-dot {
+  stroke: var(--graph-focus);
+  stroke-width: 2;
+}
+.graph-node.far {
+  opacity: 0.2;
+}
+.graph-label {
+  fill: var(--graph-text);
+  font-size: 12px;
+  text-anchor: middle;
+  pointer-events: none;
+  opacity: var(--label-opacity);
+  transition: opacity 160ms ease;
+}
+.graph-node.folder .graph-label {
+  font-weight: 600;
+}
+/* hovered node and its neighbours always show their names, larger, like Obsidian */
+.graph-node.focus .graph-label,
+.graph-node.near .graph-label,
+.graph-node:focus-visible .graph-label {
+  opacity: 1;
+}
+.graph-node.focus .graph-label {
+  font-weight: 700;
+}
+
+/* overlays */
+.graph-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  padding: 24px;
+  text-align: center;
+  pointer-events: none;
+}
+.graph-empty p {
+  max-width: 340px;
+  font-size: 14px;
+}
+.graph-zoom {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 12px;
+}
+.graph-zoom-label {
+  min-width: 54px;
+  min-height: 40px;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  border-radius: 8px;
+}
+.graph-zoom-label:hover {
+  background: var(--surface-2);
+}
+.graph-linkbar {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  translate: -50% 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: calc(100% - 260px);
+  padding: 6px 6px 6px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+}
+.graph-linkbar span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.graph-linkbar-remove {
+  flex: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-weight: 600;
+  color: var(--danger);
+}
+.graph-linkbar-remove:hover {
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+}
+
+/* settings drawer (top right, like Obsidian's graph controls) */
+.graph-settings {
+  position: absolute;
+  right: 14px;
+  top: 14px;
+  width: 44px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.graph-settings.open {
+  width: min(280px, calc(100% - 28px));
+  max-height: calc(100% - 28px);
+  overflow-y: auto;
+}
+.graph-settings-toggle {
+  display: grid;
+  place-items: center;
+  margin-left: auto;
+}
+.graph-settings-body {
+  display: grid;
+  gap: 4px;
+  padding: 0 14px 14px;
+  font-size: 13px;
+}
+.graph-settings details {
+  border-top: 1px solid var(--border);
+  padding: 8px 0 4px;
+}
+.graph-settings summary {
+  cursor: pointer;
+  font-weight: 700;
+  padding: 4px 0 8px;
+}
+.graph-search {
+  width: 100%;
+  padding: 7px 10px;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+.graph-toggle,
+.graph-slider {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 5px 0;
+  color: var(--muted);
+}
+.graph-slider {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+.graph-slider input {
+  accent-color: var(--graph-focus);
+  width: 100%;
+}
+.graph-toggle input {
+  accent-color: var(--graph-focus);
+  width: 18px;
+  height: 18px;
+}
+.graph-reheat {
+  width: 100%;
+  margin-top: 6px;
+  padding: 8px;
+  border-radius: 8px;
+  background: var(--graph-focus);
+  color: #fff;
+  font-weight: 600;
+}
+.graph-settings.open ~ .graph-hint {
+  display: none;
+}
+.graph-hint {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  max-width: 260px;
+  text-align: right;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+@media (max-width: 1100px) {
+  .graph-hint {
+    display: none;
+  }
+}
+@media (max-width: 800px) {
+  .graph {
+    height: calc(100dvh - 260px);
+    min-height: 420px;
+  }
+  .board-day-nav {
+    width: 100%;
+  }
+  .board-day-nav .button-primary {
+    margin-left: auto;
+  }
+  .graph-linkbar {
+    max-width: calc(100% - 28px);
+    bottom: 70px;
+  }
+}
