@@ -1,5 +1,7 @@
 'use client'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import Link from 'next/link'
+import { api } from '@/lib/client'
 import { useApp } from './AppContext'
 import { LoadingState, ErrorState } from './ui'
 const ranks = [
@@ -32,8 +34,13 @@ function Character({ level }) {
 }
 export default function ProgressPage() {
   const { profile, profileError, refreshProfile, t } = useApp()
+  const [learning, setLearning] = useState(null)
   useEffect(() => {
     refreshProfile()
+    // learning progress is optional here: the page works without it
+    api('/api/learning/summary')
+      .then(setLearning)
+      .catch(() => setLearning(null))
   }, [refreshProfile])
   if (!profile)
     return profileError ? (
@@ -98,12 +105,39 @@ export default function ProgressPage() {
           </div>
         ))}
       </div>
+      {learning && learning.nodes > 0 && (
+        <section className="panel progress-learning">
+          <div>
+            <p className="eyebrow">{t('Обучение', 'Learning')}</p>
+            <h3>
+              {learning.percent}% {t('тем освоено', 'of topics mastered')}
+            </h3>
+            <p className="muted">
+              {learning.mastered}/{learning.nodes} {t('тем', 'topics')} · {learning.maps}{' '}
+              {t('карт', 'maps')} · {learning.xp} XP
+            </p>
+            <div
+              className="progress-track"
+              role="progressbar"
+              aria-valuenow={learning.percent}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label={t('Прогресс обучения', 'Learning progress')}
+            >
+              <div style={{ width: learning.percent + '%' }} />
+            </div>
+          </div>
+          <Link className="button button-secondary" href="/app/learning">
+            {t('К картам', 'Open maps')}
+          </Link>
+        </section>
+      )}
       <section className="panel progress-explanation">
         <h3>{t('Как растёт прогресс', 'How progress works')}</h3>
         <p>
           {t(
-            'Выполненная задача: 10 / 25 / 50 XP в зависимости от приоритета. Отметка привычки: 15 XP. Успешный день челленджа: 20 XP.',
-            'A completed task earns 10 / 25 / 50 XP based on priority. A habit check-in earns 15 XP. A successful challenge day earns 20 XP.',
+            'Выполненная задача: 10 / 25 / 50 XP в зависимости от приоритета. Отметка привычки: 15 XP. Успешный день челленджа: 20 XP. Освоенная тема в карте обучения: 30 XP.',
+            'A completed task earns 10 / 25 / 50 XP based on priority. A habit check-in earns 15 XP. A successful challenge day earns 20 XP. A mastered topic in a learning map earns 30 XP.',
           )}
         </p>
         <p>

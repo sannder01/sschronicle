@@ -81,6 +81,7 @@ try {
         TG_WEBHOOK_SECRET: 'local-webhook-test',
         TELEGRAM_BOT_TOKEN: '',
         TELEGRAM_BOT_USERNAME: '',
+        GROQ_API_KEY: '',
         CRON_SECRET: 'local-cron-test',
         NEXT_TELEMETRY_DISABLED: '1',
       },

@@ -1,4 +1,10 @@
 const paths = {
+  learning: (
+    <>
+      <path d="m2 9 10-5 10 5-10 5L2 9Z" />
+      <path d="M6 11v5c3 2.5 9 2.5 12 0v-5M22 9v6" />
+    </>
+  ),
   diary: (
     <>
       <path d="M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5V3ZM7 3v18M3 7h4M3 12h4M3 17h4M11 8h6M11 12h6M11 16h3" />

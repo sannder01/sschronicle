@@ -1540,6 +1540,23 @@ small {
 .rank-item.current strong {
   color: var(--accent);
 }
+.progress-learning {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+  padding: 24px;
+}
+.progress-learning > div {
+  flex: 1 1 260px;
+  display: grid;
+  gap: 6px;
+}
+.progress-learning h3 {
+  margin: 0;
+}
 .progress-explanation {
   margin-top: 24px;
   padding: 24px;

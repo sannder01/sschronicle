@@ -30,6 +30,10 @@ export const GET = api(async (req, context, { user }) => {
       'schedule_links',
       'task_links',
       'folder_links',
+      'learning_maps',
+      'learning_nodes',
+      'learning_edges',
+      'learning_materials',
     ]) {
       result[table] = (
         await client.query('SELECT * FROM ' + table + ' WHERE user_id=$1 ORDER BY id', [user.id])
