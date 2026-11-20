@@ -132,9 +132,11 @@ export default function GraphView({
   const applyCamera = useCallback(() => {
     const { x, y, k } = cam.current
     worldRef.current?.setAttribute('transform', `translate(${x} ${y}) scale(${k})`)
-    // labels fade in past the threshold, like Obsidian's "Text fade threshold"
-    const label = clamp((k - textFade.current) / 0.35 + 0.5, 0, 1)
-    svgRef.current?.style.setProperty('--label-opacity', label)
+    // labels fade in past the threshold, like Obsidian's "Text fade threshold":
+    // folder names first, the names of what is inside them only when zoomed in closer
+    const fade = (from) => clamp((k - from) / 0.35 + 0.5, 0, 1)
+    svgRef.current?.style.setProperty('--label-folder', fade(textFade.current - 0.25))
+    svgRef.current?.style.setProperty('--label-task', fade(textFade.current + 0.6))
     if (zoomLabel.current) zoomLabel.current.textContent = Math.round(k * 100) + '%'
   }, [])
   useEffect(applyCamera, [settings.textFade, applyCamera])
@@ -188,7 +190,7 @@ export default function GraphView({
       maxX = Math.max(...xs) + 60,
       minY = Math.min(...ys) - 60,
       maxY = Math.max(...ys) + 60
-    const k = clamp(Math.min(w / (maxX - minX), h / (maxY - minY), 1.6), MIN_K, MAX_K)
+    const k = clamp(Math.min(w / (maxX - minX), h / (maxY - minY), 1.1), MIN_K, MAX_K)
     return { x: (w - (maxX + minX) * k) / 2, y: (h - (maxY + minY) * k) / 2, k }
   }
 

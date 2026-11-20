@@ -48,7 +48,8 @@
   cursor: grab;
   -webkit-user-select: none;
   user-select: none;
-  --label-opacity: 1;
+  --label-folder: 1;
+  --label-task: 1;
 }
 .graph-canvas:active {
   cursor: grabbing;
@@ -136,10 +137,11 @@
   font-size: 12px;
   text-anchor: middle;
   pointer-events: none;
-  opacity: var(--label-opacity);
+  opacity: var(--label-task);
   transition: opacity 160ms ease;
 }
 .graph-node.folder .graph-label {
+  opacity: var(--label-folder);
   font-weight: 600;
 }
 /* hovered node and its neighbours always show their names, larger, like Obsidian */
