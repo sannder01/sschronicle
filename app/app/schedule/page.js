@@ -1,5 +1,5 @@
-import SchedulePage from '@/components/schedule/SchedulePage'
+import TimetablePage from '@/components/schedule/TimetablePage'
 export const metadata = { title: 'Расписание' }
 export default function Page() {
-  return <SchedulePage />
+  return <TimetablePage />
 }

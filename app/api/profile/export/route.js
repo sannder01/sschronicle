@@ -35,6 +35,7 @@ export const GET = api(async (req, context, { user }) => {
       'challenge_entries',
       'schedule_blocks',
       'schedule_links',
+      'timetable_entries',
       'task_links',
       'folder_links',
       'learning_maps',

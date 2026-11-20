@@ -1,0 +1,425 @@
+/* ---------- Weekly timetable ---------- */
+.tt-page {
+  min-width: 0;
+}
+.chip {
+  min-height: 36px;
+  padding: 6px 13px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  background: var(--surface-2);
+  color: var(--muted);
+  transition:
+    background-color 200ms ease,
+    color 200ms ease;
+}
+.chip:hover {
+  color: var(--text);
+}
+.chip.selected {
+  background: var(--accent-soft, color-mix(in srgb, var(--accent) 14%, transparent));
+  color: var(--accent);
+  font-weight: 600;
+}
+.color-field {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.color-field legend {
+  padding: 0;
+  margin-bottom: 7px;
+}
+
+/* now / next */
+.tt-now {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 14px;
+  margin-bottom: 18px;
+}
+.tt-now-item {
+  display: grid;
+  gap: 3px;
+  align-content: start;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  box-shadow: inset 4px 0 0 var(--accent);
+  min-width: 0;
+}
+.tt-now-item.free,
+.tt-now-item.next {
+  background: var(--surface-2);
+  box-shadow: inset 4px 0 0 color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+.tt-now-item strong {
+  font-size: 18px;
+  overflow-wrap: anywhere;
+}
+.tt-now-item .muted {
+  font-size: 13px;
+}
+.tt-progress {
+  height: 6px;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  overflow: hidden;
+}
+.tt-progress > div {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+/* week grid (desktop) */
+.tt-week {
+  --time-col: 56px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+.tt-week-head {
+  display: grid;
+  grid-template-columns: var(--time-col) repeat(var(--cols), minmax(0, 1fr));
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface);
+}
+.tt-day-head {
+  display: grid;
+  gap: 1px;
+  padding: 10px 12px;
+  font-weight: 700;
+  font-size: 14px;
+  border-left: 1px solid var(--border);
+}
+.tt-day-head small {
+  font-weight: 500;
+  font-size: 11px;
+  color: var(--muted);
+}
+.tt-day-head.today {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+}
+.tt-week-body {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--time-col) repeat(var(--cols), minmax(0, 1fr));
+}
+.tt-hours {
+  position: relative;
+}
+.tt-hours span {
+  position: absolute;
+  right: 8px;
+  translate: 0 -50%;
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.tt-hours span:first-child {
+  translate: 0 2px;
+}
+.tt-col {
+  position: relative;
+  border-left: 1px solid var(--border);
+  /* hour lines, and fainter half-hour lines */
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(color-mix(in srgb, var(--border) 45%, transparent) 1px, transparent 1px);
+  background-size:
+    100% var(--hour),
+    100% calc(var(--hour) / 2);
+  cursor: copy;
+}
+.tt-col.today {
+  background-color: color-mix(in srgb, var(--accent) 4%, transparent);
+}
+.tt-block {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  text-align: left;
+  overflow: hidden;
+  cursor: pointer;
+  background: color-mix(in srgb, var(--accent) 15%, var(--surface));
+  color: color-mix(in srgb, var(--accent) 55%, var(--text));
+  box-shadow: inset 3px 0 0 var(--accent);
+  transition:
+    box-shadow 160ms ease,
+    transform 160ms var(--spring);
+}
+.tt-block:hover {
+  box-shadow:
+    inset 3px 0 0 var(--accent),
+    0 6px 18px color-mix(in srgb, var(--accent) 22%, transparent);
+  z-index: 1;
+}
+.tt-block:focus-visible,
+.tt-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.tt-block.live,
+.tt-card.live {
+  box-shadow:
+    inset 3px 0 0 var(--accent),
+    0 0 0 2px var(--accent);
+}
+.tt-block.short {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+}
+.tt-block.short .tt-entry-meta {
+  display: none;
+}
+.tt-entry-time {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+  white-space: nowrap;
+}
+.tt-kind {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.tt-entry-title {
+  font-size: 13px;
+  line-height: 1.25;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.tt-block.short .tt-entry-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tt-entry-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.tt-entry-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+/* labs and seminars read differently at a glance */
+.tt-block.lab,
+.tt-card.lab {
+  background-image: repeating-linear-gradient(
+    135deg,
+    transparent 0 8px,
+    color-mix(in srgb, var(--accent) 7%, transparent) 8px 16px
+  );
+}
+.tt-block.practice,
+.tt-card.practice,
+.tt-block.seminar,
+.tt-card.seminar {
+  box-shadow: inset 3px 0 0 var(--accent);
+  background-color: color-mix(in srgb, var(--accent) 9%, var(--surface));
+}
+.tt-now-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--danger);
+  pointer-events: none;
+  z-index: 2;
+}
+.tt-now-line::before {
+  content: '';
+  position: absolute;
+  left: -5px;
+  top: -4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--danger);
+}
+
+/* day list (phone) */
+.tt-tabs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 14px;
+  border-radius: 16px;
+  background: var(--surface-2);
+}
+.tt-tab {
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  min-height: 52px;
+  padding: 6px 0;
+  border-radius: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.tt-tab small {
+  font-size: 11px;
+  font-weight: 500;
+}
+.tt-tab.today {
+  color: var(--accent);
+}
+.tt-tab.selected {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+.tt-tab.selected.today {
+  color: var(--accent);
+}
+.tt-day {
+  display: grid;
+  gap: 12px;
+}
+.tt-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.tt-list li {
+  display: grid;
+  gap: 8px;
+}
+.tt-card {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 16px;
+  text-align: left;
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  box-shadow: inset 4px 0 0 var(--accent);
+  color: var(--text);
+}
+.tt-card .tt-entry-time {
+  font-size: 13px;
+  color: color-mix(in srgb, var(--accent) 60%, var(--text));
+}
+.tt-card .tt-entry-title {
+  font-size: 17px;
+}
+.tt-card .tt-entry-meta {
+  font-size: 13px;
+}
+.tt-break {
+  justify-self: center;
+  padding: 3px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--surface-2);
+}
+.tt-break.warn {
+  color: var(--danger);
+}
+.tt-free {
+  padding: 28px 0;
+  text-align: center;
+}
+.tt-add-day {
+  justify-self: stretch;
+  justify-content: center;
+}
+
+/* legend and editor */
+.tt-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: 14px;
+  font-size: 12px;
+}
+.tt-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.tt-legend-item::before {
+  content: '';
+  width: 14px;
+  height: 10px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--accent) 15%, var(--surface));
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.tt-legend-item.lab::before {
+  background-image: repeating-linear-gradient(
+    135deg,
+    transparent 0 3px,
+    color-mix(in srgb, var(--accent) 25%, transparent) 3px 6px
+  );
+}
+.tt-fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.tt-fieldset legend {
+  padding: 0;
+  margin-bottom: 7px;
+}
+.tt-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.tt-day-chips .chip {
+  min-width: 46px;
+}
+.tt-times {
+  grid-template-columns: 1fr 1fr;
+}
+.tt-warn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 13px;
+  color: var(--danger);
+}
+
+@media (max-width: 640px) {
+  .tt-now {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 10px;
+  }
+  .chip {
+    min-height: 44px;
+  }
+}
