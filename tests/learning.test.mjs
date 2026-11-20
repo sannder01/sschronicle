@@ -172,3 +172,99 @@ test('AI module uses mocked fetch and rejects an invalid provider payload', asyn
     else process.env.GROQ_API_KEY = previous
   }
 })
+
+test('AI module waits out a short provider rate limit and names other failures', async () => {
+  const previous = process.env.GROQ_API_KEY
+  process.env.GROQ_API_KEY = 'test-only'
+  const reply = (status, content, retry = '1') => ({
+    ok: status === 200,
+    status,
+    headers: { get: (name) => (name === 'retry-after' ? retry : null) },
+    json: async () => ({ choices: [{ message: { content } }] }),
+  })
+  const good = '{"summary":"ok","nodes":[],"edges":[]}'
+  try {
+    // busy once, then fine: one retry, and the low reasoning effort is requested
+    let calls = 0
+    const ok = await requestLearningSuggestion({
+      mode: 'route',
+      context: {},
+      fetchImpl: async (_url, options) => {
+        calls++
+        assert.equal(JSON.parse(options.body).reasoning_effort, 'low')
+        return calls === 1 ? reply(429, '') : reply(200, good)
+      },
+    })
+    assert.equal(ok.summary, 'ok')
+    assert.equal(calls, 2)
+    // still busy after the retry: a clear "busy" error with the wait time
+    await assert.rejects(
+      requestLearningSuggestion({
+        mode: 'route',
+        context: {},
+        fetchImpl: async () => reply(429, ''),
+      }),
+      (error) =>
+        error.code === 'AI_BUSY' && error.status === 429 && error.details.retry_after === 1,
+    )
+    // a long wait is not retried in the request
+    calls = 0
+    await assert.rejects(
+      requestLearningSuggestion({
+        mode: 'route',
+        context: {},
+        fetchImpl: async () => (calls++, reply(429, '', '40')),
+      }),
+      { code: 'AI_BUSY' },
+    )
+    assert.equal(calls, 1)
+    await assert.rejects(
+      requestLearningSuggestion({
+        mode: 'route',
+        context: {},
+        fetchImpl: async () => reply(401, ''),
+      }),
+      { code: 'AI_KEY_INVALID' },
+    )
+    await assert.rejects(
+      requestLearningSuggestion({
+        mode: 'route',
+        context: {},
+        fetchImpl: async () => reply(500, ''),
+      }),
+      { code: 'AI_PROVIDER_ERROR' },
+    )
+  } finally {
+    if (previous === undefined) delete process.env.GROQ_API_KEY
+    else process.env.GROQ_API_KEY = previous
+  }
+})
+
+test('AI module asks once more when a structure answer has no topics', async () => {
+  const previous = process.env.GROQ_API_KEY
+  process.env.GROQ_API_KEY = 'test-only'
+  let calls = 0
+  try {
+    const result = await requestLearningSuggestion({
+      mode: 'structure',
+      context: {},
+      fetchImpl: async () => {
+        calls++
+        const content =
+          calls === 1
+            ? '{"summary":"only words","nodes":[],"edges":[]}'
+            : '{"summary":"ok","nodes":[{"ref":"new:a","kind":"topic","title":"A"}],"edges":[]}'
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ choices: [{ message: { content } }] }),
+        }
+      },
+    })
+    assert.equal(calls, 2)
+    assert.equal(result.nodes.length, 1)
+  } finally {
+    if (previous === undefined) delete process.env.GROQ_API_KEY
+    else process.env.GROQ_API_KEY = previous
+  }
+})

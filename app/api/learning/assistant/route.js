@@ -6,6 +6,8 @@ import { ownerMap, ownerNode, id } from '@/lib/learning'
 import { text, oneOf } from '@/lib/validation'
 import { ApiError } from '@/lib/api-error.js'
 export const dynamic = 'force-dynamic'
+// Vercel stops functions after 10 s by default; a structure answer plus one retry needs longer
+export const maxDuration = 60
 const model = () => process.env.GROQ_MODEL || 'openai/gpt-oss-120b'
 export const GET = api(async () =>
   json({ available: Boolean(process.env.GROQ_API_KEY?.trim()), model: model() }),

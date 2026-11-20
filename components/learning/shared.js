@@ -77,8 +77,25 @@ export function errorText(error, t, fallback) {
       )
     case 'AI_BAD_RESPONSE':
       return t(
-        'Помощник ответил непонятно. Попробуйте ещё раз',
-        'The assistant gave an unusable answer. Try again',
+        'Помощник прислал ответ, который не удалось разобрать. Попробуйте ещё раз',
+        'The assistant sent an answer that could not be read. Try again',
+      )
+    case 'AI_BUSY': {
+      const s = error?.data?.retry_after || 10
+      return t(
+        `Помощник сейчас занят (лимит бесплатного Groq). Попробуйте через ${s} с`,
+        `The assistant is busy (free Groq limit). Try again in ${s} s`,
+      )
+    }
+    case 'AI_KEY_INVALID':
+      return t(
+        'Ключ Groq не принят. Проверьте GROQ_API_KEY на сервере',
+        'The Groq key was rejected. Check GROQ_API_KEY on the server',
+      )
+    case 'AI_PROVIDER_ERROR':
+      return t(
+        'Сервис Groq сейчас недоступен. Попробуйте позже',
+        'Groq is unavailable right now. Try later',
       )
     case 'RATE_LIMITED':
       return t(
