@@ -1,25 +1,42 @@
 'use client'
-// Board canvas: cards pinned to an infinite board and tied with red strings.
-// Physics after Apple's "Designing Fluid Interfaces": 1:1 tracking, momentum
-// projection, velocity handoff to springs, everything interruptible.
-// Data-agnostic: the page passes `items`, an `adapter` for strings and positions, and
-// optional `structure`: fixed threads (e.g. folder → task) drawn but never cut by hand.
+// Board canvas in the manner of Obsidian Canvas: cards on an infinite dotted grid,
+// joined by curved edges that leave and enter the cards through side handles.
+// Cards snap to the grid when dropped; camera pans with momentum and zooms around the pointer.
+// Data-agnostic: the page passes `items`, an `adapter` for edges and positions, and
+// optional `structure`: fixed edges (e.g. folder → task) drawn with arrows, never cut by hand.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useApp } from '@/components/AppContext'
 import { Button, ErrorState } from '@/components/ui'
 import Icon from '@/components/Icon'
-import { spring, project, velocityTracker, motionReduced } from '@/components/motion'
+import { spring, velocityTracker, motionReduced } from '@/components/motion'
 import './board.css'
 
 const CARD_W = 210
 const CARD_H = 112
-const PIN_Y = 10
+const GRID = 20
 const MIN_Z = 0.3
 const MAX_Z = 2.4
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v))
-const restTilt = (id) => ((((Math.abs(id) * 37) % 7) - 3) * 0.8).toFixed(2) * 1
-const pinOf = (p) => ({ x: p.x + CARD_W / 2, y: p.y + PIN_Y })
+const snap = (v) => Math.round(v / GRID) * GRID
+const SIDES = ['top', 'right', 'bottom', 'left']
+const NORMAL = { top: [0, -1], right: [1, 0], bottom: [0, 1], left: [-1, 0] }
 const NO_STRUCTURE = []
+
+/** Cubic curve that leaves `a` along its side's normal and enters `b` the same way. */
+function curve(a, sideA, b, sideB) {
+  const k = clamp(Math.hypot(b.x - a.x, b.y - a.y) * 0.45, 30, 180)
+  const [ax, ay] = NORMAL[sideA],
+    [bx, by] = sideB ? NORMAL[sideB] : [0, 0]
+  const c1 = { x: a.x + ax * k, y: a.y + ay * k },
+    c2 = { x: b.x + bx * k, y: b.y + by * k }
+  return {
+    d: `M ${a.x} ${a.y} C ${c1.x} ${c1.y} ${c2.x} ${c2.y} ${b.x} ${b.y}`,
+    mid: {
+      x: 0.125 * a.x + 0.375 * c1.x + 0.375 * c2.x + 0.125 * b.x,
+      y: 0.125 * a.y + 0.375 * c1.y + 0.375 * c2.y + 0.125 * b.y,
+    },
+  }
+}
 
 export default function BoardCanvas({
   items: blocks,
@@ -42,17 +59,14 @@ export default function BoardCanvas({
 
   const boardRef = useRef(null),
     worldRef = useRef(null),
-    farRef = useRef(null),
-    nearRef = useRef(null),
     zoomLabel = useRef(null),
     tempPath = useRef(null),
     cam = useRef({ x: 0, y: 0, z: 1 }),
     camAnim = useRef([]),
     pos = useRef(new Map()), // id -> {x, y, r}
     cardEls = useRef(new Map()),
-    pinEls = useRef(new Map()),
     cardAnim = useRef(new Map()),
-    ropes = useRef(new Map()), // link id -> { mx, my, vx, vy, els }
+    ropes = useRef(new Map()), // link id -> { els }
     raf = useRef(0),
     gesture = useRef(null),
     pointers = useRef(new Map()),
@@ -82,7 +96,7 @@ export default function BoardCanvas({
     if (loading) return
     for (const b of blocks)
       if (!pos.current.has(b.id) && b.canvas_x != null)
-        pos.current.set(b.id, { x: b.canvas_x, y: b.canvas_y, r: restTilt(b.id) })
+        pos.current.set(b.id, { x: b.canvas_x, y: b.canvas_y, r: 0 })
     const unplaced = blocks.filter((b) => !pos.current.has(b.id))
     let fresh
     if (!placedOnce.current) {
@@ -104,7 +118,11 @@ export default function BoardCanvas({
       }))
     }
     placedOnce.current = true
-    for (const f of fresh) pos.current.set(f.id, { x: f.x, y: f.y, r: restTilt(f.id) })
+    for (const f of fresh) {
+      f.x = snap(f.x)
+      f.y = snap(f.y)
+      pos.current.set(f.id, { x: f.x, y: f.y, r: 0 })
+    }
     for (const id of [...pos.current.keys()])
       if (!blocks.some((b) => b.id === id)) pos.current.delete(id)
     if (fresh.length) adapter.savePositions(fresh).catch(() => {})
@@ -117,19 +135,11 @@ export default function BoardCanvas({
       board = boardRef.current
     if (!board || !worldRef.current) return
     worldRef.current.style.transform = `translate3d(${x}px, ${y}px, 0) scale(${z})`
-    // parallax: far layers drift slower and scale less than the board itself
-    const still = motionReduced()
-    const layer = (el, depth, size) => {
-      if (!el) return
-      const f = still ? 1 : depth
-      el.style.backgroundPosition = `${x * f}px ${y * f}px`
-      el.style.backgroundSize = `${size * (1 + (z - 1) * f)}px ${size * (1 + (z - 1) * f)}px`
-    }
-    layer(farRef.current, 0.25, 180)
-    layer(nearRef.current, 0.6, 90)
-    // cork grain and its larger mottling move and scale with the board, like a real surface
-    board.style.backgroundPosition = `${x}px ${y}px, ${x}px ${y}px`
-    board.style.backgroundSize = `${220 * z}px ${220 * z}px, ${640 * z}px ${640 * z}px`
+    // dot grid moves and scales with the cards; zoomed far out it thins to every 2nd/4th dot
+    let step = GRID * z
+    while (step < 14) step *= 2
+    board.style.backgroundPosition = `${x}px ${y}px`
+    board.style.backgroundSize = `${step}px ${step}px`
     if (zoomLabel.current) zoomLabel.current.textContent = Math.round(z * 100) + '%'
   }, [])
 
@@ -220,71 +230,61 @@ export default function BoardCanvas({
     return () => observer.disconnect()
   }, [applyCamera])
 
-  // ---------------- cards & ropes rendering ----------------
-  const placeCard = (id) => {
-    const el = cardEls.current.get(id),
-      p = pos.current.get(id)
-    if (el && p) el.style.transform = `translate3d(${p.x}px, ${p.y}px, 0) rotate(${p.r}deg)`
-    // the pin lives above the strings (it holds them down), so it is placed separately
-    const pin = pinEls.current.get(id)
-    if (pin && p) pin.setAttribute('transform', `translate(${p.x + CARD_W / 2} ${p.y + PIN_Y})`)
+  // ---------------- cards & edges rendering ----------------
+  const sizeOf = (id) => {
+    const el = cardEls.current.get(id)
+    return { w: el?.offsetWidth || CARD_W, h: el?.offsetHeight || CARD_H }
   }
-  const ropeTarget = (link) => {
-    const a = pos.current.get(link.from_id),
-      b = pos.current.get(link.to_id)
-    if (!a || !b) return null
-    const pa = pinOf(a),
-      pb = pinOf(b),
-      len = Math.hypot(pb.x - pa.x, pb.y - pa.y)
-    // gravity: a longer string droops more
-    return { pa, pb, mx: (pa.x + pb.x) / 2, my: (pa.y + pb.y) / 2 + Math.min(90, 18 + len * 0.12) }
+  const anchor = (id, side) => {
+    const p = pos.current.get(id),
+      { w, h } = sizeOf(id)
+    if (side === 'top') return { x: p.x + w / 2, y: p.y }
+    if (side === 'bottom') return { x: p.x + w / 2, y: p.y + h }
+    if (side === 'left') return { x: p.x, y: p.y + h / 2 }
+    return { x: p.x + w, y: p.y + h / 2 }
+  }
+  // the side of card `id` that faces the point (tx, ty), judged by the card's own proportions
+  const sideToward = (id, tx, ty) => {
+    const p = pos.current.get(id),
+      { w, h } = sizeOf(id)
+    const dx = (tx - (p.x + w / 2)) / w,
+      dy = (ty - (p.y + h / 2)) / h
+    return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : dy > 0 ? 'bottom' : 'top'
+  }
+  const centre = (id) => {
+    const p = pos.current.get(id),
+      { w, h } = sizeOf(id)
+    return { x: p.x + w / 2, y: p.y + h / 2 }
+  }
+  const edgeShape = (link) => {
+    if (!pos.current.has(link.from_id) || !pos.current.has(link.to_id)) return null
+    const ca = centre(link.from_id),
+      cb = centre(link.to_id)
+    const sa = sideToward(link.from_id, cb.x, cb.y),
+      sb = sideToward(link.to_id, ca.x, ca.y)
+    return curve(anchor(link.from_id, sa), sa, anchor(link.to_id, sb), sb)
   }
   const drawRope = (link) => {
     const r = ropes.current.get(link.id),
-      tg = ropeTarget(link)
-    if (!r || !tg || !r.els.string) return
-    const cx = 2 * r.mx - (tg.pa.x + tg.pb.x) / 2,
-      cy = 2 * r.my - (tg.pa.y + tg.pb.y) / 2
-    const d = `M ${tg.pa.x} ${tg.pa.y} Q ${cx} ${cy} ${tg.pb.x} ${tg.pb.y}`
-    r.els.string.setAttribute('d', d)
-    r.els.shadow?.setAttribute('d', d)
-    r.els.hit?.setAttribute('d', d)
-    if (r.els.cut) r.els.cut.style.transform = `translate(${r.mx}px, ${r.my}px)`
+      shape = r?.els.string && edgeShape(link)
+    if (!shape) return
+    r.els.string.setAttribute('d', shape.d)
+    r.els.hit?.setAttribute('d', shape.d)
+    if (r.els.cut) r.els.cut.style.transform = `translate(${shape.mid.x}px, ${shape.mid.y}px)`
+  }
+  const placeCard = (id) => {
+    const el = cardEls.current.get(id),
+      p = pos.current.get(id)
+    if (!el || !p) return
+    el.style.transform = `translate3d(${p.x}px, ${p.y}px, 0)`
+    for (const link of linksRef.current)
+      if (link.from_id === id || link.to_id === id) drawRope(link)
   }
 
-  // one physics loop for every string: the midpoint is a mass on a soft spring,
-  // so strings lag, sway and settle when a card moves
+  // redraw every edge; keeps running while a gesture or the auto layout is live
   const tick = useCallback(() => {
-    let moving = false
-    const dt = 1 / 60,
-      w = (2 * Math.PI) / 0.7,
-      k = w * w,
-      c = 2 * 0.32 * w
-    for (const link of linksRef.current) {
-      const r = ropes.current.get(link.id),
-        tg = ropeTarget(link)
-      if (!r || !tg) continue
-      if (r.mx == null) {
-        r.mx = tg.mx
-        r.my = tg.my
-        r.vx = r.vy = 0
-      }
-      if (motionReduced()) {
-        r.mx = tg.mx
-        r.my = tg.my
-      } else {
-        for (let i = 0; i < 2; i++) {
-          r.vx += (-k * (r.mx - tg.mx) - c * r.vx) * (dt / 2)
-          r.vy += (-k * (r.my - tg.my) - c * r.vy) * (dt / 2)
-          r.mx += r.vx * (dt / 2)
-          r.my += r.vy * (dt / 2)
-        }
-      }
-      drawRope(link)
-      if (Math.abs(r.vx) + Math.abs(r.vy) > 0.6 || Math.hypot(r.mx - tg.mx, r.my - tg.my) > 0.4)
-        moving = true
-    }
-    raf.current = moving || gesture.current || layoutRun.current ? requestAnimationFrame(tick) : 0
+    for (const link of linksRef.current) drawRope(link)
+    raf.current = gesture.current || layoutRun.current ? requestAnimationFrame(tick) : 0
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   const kick = useCallback(() => {
@@ -315,7 +315,7 @@ export default function BoardCanvas({
       return
     }
     const card = e.target.closest('.board-card'),
-      pin = e.target.closest('.board-pin')
+      handle = e.target.closest('.board-handle')
     if (e.target.closest('.card-check, .rope-cut')) return
     const base = {
       pointerId: e.pointerId,
@@ -325,9 +325,9 @@ export default function BoardCanvas({
       tx: velocityTracker(),
       ty: velocityTracker(),
     }
-    if (pin) {
-      const id = Number(pin.dataset.id)
-      gesture.current = { ...base, kind: 'link', id, active: true }
+    if (handle) {
+      const id = Number(handle.dataset.id)
+      gesture.current = { ...base, kind: 'link', id, side: handle.dataset.side, active: true }
       try {
         boardRef.current.setPointerCapture(e.pointerId)
       } catch {}
@@ -338,7 +338,7 @@ export default function BoardCanvas({
       cardAnim.current.get(id)?.forEach((a) => a.stop())
       cardAnim.current.set(id, [])
       const w = toWorld(e.clientX, e.clientY)
-      gesture.current = { ...base, kind: 'card', id, grabX: w.x - p.x, grabY: w.y - p.y, tilt: p.r }
+      gesture.current = { ...base, kind: 'card', id, grabX: w.x - p.x, grabY: w.y - p.y }
       if (e.pointerType === 'mouse') e.preventDefault()
     } else {
       gesture.current = { ...base, kind: 'pan', camX: cam.current.x, camY: cam.current.y }
@@ -385,27 +385,19 @@ export default function BoardCanvas({
       g.ty.add(w.y)
       p.x = w.x - g.grabX
       p.y = w.y - g.grabY
-      // the card leans into the direction it is pulled
-      const lean = clamp(g.tx.velocity() / 140, -9, 9)
-      g.tilt += (lean - g.tilt) * 0.25
-      p.r = g.tilt
       placeCard(g.id)
     } else if (g.kind === 'link') {
-      const from = pinOf(pos.current.get(g.id)),
+      const from = anchor(g.id, g.side),
         w = toWorld(e.clientX, e.clientY)
-      g.end = w
       const hit = document.elementFromPoint(e.clientX, e.clientY),
-        over = hit?.closest('.board-card') || hit?.closest('.board-pin')
+        over = hit?.closest('.board-card')
       const overId = over ? Number(over.dataset.id) : null
       g.over = overId !== g.id ? overId : null
       for (const [id, el] of cardEls.current) el.toggleAttribute('data-target', id === g.over)
-      const len = Math.hypot(w.x - from.x, w.y - from.y),
-        mx = (from.x + w.x) / 2,
-        my = (from.y + w.y) / 2 + Math.min(70, 10 + len * 0.1)
-      tempPath.current?.setAttribute(
-        'd',
-        `M ${from.x} ${from.y} Q ${2 * mx - (from.x + w.x) / 2} ${2 * my - (from.y + w.y) / 2} ${w.x} ${w.y}`,
-      )
+      // over a card the loose end snaps to the side that faces the source, like Obsidian
+      const endSide = g.over != null ? sideToward(g.over, from.x, from.y) : null
+      g.end = endSide ? anchor(g.over, endSide) : w
+      tempPath.current?.setAttribute('d', curve(from, g.side, g.end, endSide).d)
       tempPath.current?.setAttribute('data-visible', 'true')
     }
   }
@@ -434,56 +426,38 @@ export default function BoardCanvas({
       releaseCard(g)
     } else if (g.kind === 'link') {
       for (const el of cardEls.current.values()) el.removeAttribute('data-target')
-      if (g.over) connect(g.id, g.over)
-      retractTemp(g)
+      if (g.over) {
+        connect(g.id, g.over)
+        tempPath.current?.setAttribute('data-visible', 'false')
+      } else retractTemp(g)
     }
     kick()
   }
 
-  /** Flick a card: project where it would glide to, hand the velocity to X and Y springs. */
+  /** Drop a card where it was let go, settling onto the nearest grid point. */
   function releaseCard(g) {
     const id = g.id,
-      p = pos.current.get(id),
-      vx = g.tx.velocity(),
-      vy = g.ty.velocity()
+      p = pos.current.get(id)
     cardEls.current.get(id)?.removeAttribute('data-lifted')
-    const fast = Math.hypot(vx, vy) > 500
-    const to = { x: p.x + project(vx, 0.995), y: p.y + project(vy, 0.995) }
-    const opts = { damping: fast ? 0.8 : 1, response: 0.45 }
-    const anims = [
-      spring({
-        from: p.x,
-        to: to.x,
-        velocity: vx,
-        ...opts,
-        onUpdate: (v) => ((p.x = v), placeCard(id)),
-      }),
-      spring({
-        from: p.y,
-        to: to.y,
-        velocity: vy,
-        ...opts,
-        onUpdate: (v) => ((p.y = v), placeCard(id)),
-      }),
-      spring({
-        from: p.r,
-        to: restTilt(id),
-        damping: 0.6,
-        response: 0.5,
-        onUpdate: (v) => ((p.r = v), placeCard(id)),
-      }),
-    ]
+    const to = { x: snap(p.x), y: snap(p.y) }
+    const opts = { damping: 1, response: 0.18 }
+    const anims = motionReduced()
+      ? (Object.assign(p, to), placeCard(id), [])
+      : [
+          spring({ from: p.x, to: to.x, ...opts, onUpdate: (v) => ((p.x = v), placeCard(id)) }),
+          spring({ from: p.y, to: to.y, ...opts, onUpdate: (v) => ((p.y = v), placeCard(id)) }),
+        ]
     cardAnim.current.set(id, anims)
     kick()
-    savePosition(id, Math.round(to.x), Math.round(to.y))
+    savePosition(id, to.x, to.y)
   }
 
   function retractTemp(g) {
     const path = tempPath.current
     if (!path || !g.end) return path?.setAttribute('data-visible', 'false')
-    const from = pinOf(pos.current.get(g.id)),
+    const from = anchor(g.id, g.side),
       end = { ...g.end }
-    // the loose string springs back into the pin
+    // a loose edge springs back into its handle
     spring({
       from: 1,
       to: 0,
@@ -762,8 +736,6 @@ export default function BoardCanvas({
           onPointerUp={onBoardPointerUp}
           onPointerCancel={onBoardPointerUp}
         >
-          <div ref={farRef} className="board-layer far" aria-hidden="true" />
-          <div ref={nearRef} className="board-layer near" aria-hidden="true" />
           <div ref={worldRef} className="board-world">
             <svg className="board-ropes" aria-hidden="true">
               {allLinks.map((l) => {
@@ -777,8 +749,11 @@ export default function BoardCanvas({
                     data-to={l.to_id}
                     className={`rope ${l.fixed ? 'fixed' : ''} ${lit === false ? 'dim' : ''} ${lit ? 'lit' : ''} ${selectedLink?.id === l.id ? 'selected' : ''}`}
                   >
-                    <path ref={(el) => (r.els.shadow = el)} className="rope-shadow" />
-                    <path ref={(el) => (r.els.string = el)} className="rope-string" />
+                    <path
+                      ref={(el) => (r.els.string = el)}
+                      className="rope-string"
+                      markerEnd={l.fixed ? 'url(#board-arrow)' : undefined}
+                    />
                     <path
                       ref={(el) => (r.els.hit = el)}
                       className="rope-hit"
@@ -790,24 +765,18 @@ export default function BoardCanvas({
               })}
               <path ref={tempPath} className="rope-temp" data-visible="false" />
               <defs>
-                <radialGradient id="pin-head" cx="35%" cy="30%" r="75%">
-                  <stop offset="0" stopColor="#ff8b80" />
-                  <stop offset="0.4" stopColor="#d0342c" />
-                  <stop offset="1" stopColor="#8e1d17" />
-                </radialGradient>
-              </defs>
-              {blocks.map((b) => (
-                <g
-                  key={b.id}
-                  ref={(el) => (el ? pinEls.current.set(b.id, el) : pinEls.current.delete(b.id))}
-                  className={`board-pin ${neighbours && !neighbours.has(b.id) ? 'dim' : ''}`}
-                  data-id={b.id}
+                <marker
+                  id="board-arrow"
+                  viewBox="0 0 10 10"
+                  refX="10"
+                  refY="5"
+                  markerWidth="6"
+                  markerHeight="6"
+                  orient="auto-start-reverse"
                 >
-                  <title>{t('Потяните, чтобы протянуть нить', 'Drag to tie a string')}</title>
-                  <circle className="pin-hit" r="20" />
-                  <circle className="pin-head" r="9" />
-                </g>
-              ))}
+                  <path className="edge-arrow" d="M 0 0 L 10 5 L 0 10 z" />
+                </marker>
+              </defs>
             </svg>
             {selectedLink && (
               <button
@@ -830,8 +799,7 @@ export default function BoardCanvas({
                   ref={(el) => (el ? cardEls.current.set(b.id, el) : cardEls.current.delete(b.id))}
                   className={`board-card ${b.kind === 'folder' ? 'folder-card' : ''} ${b.done ? 'done' : ''} ${lit === false ? 'dim' : ''} ${selected?.type === 'card' && selected.id === b.id ? 'selected' : ''} ${linkFrom === b.id ? 'link-source' : ''}`}
                   data-id={b.id}
-                  data-accent={b.color && b.color !== 'accent' ? b.color : undefined}
-                  style={b.tape ? { '--tape': b.tape } : undefined}
+                  style={b.tape ? { '--card-color': b.tape } : undefined}
                   onPointerEnter={() => !gesture.current && setFocus(b.id)}
                   onPointerLeave={() =>
                     !gesture.current && setFocus(selected?.type === 'card' ? selected.id : null)
@@ -857,6 +825,15 @@ export default function BoardCanvas({
                     <strong className="card-title">{b.title}</strong>
                     {b.note && <span className="card-note">{b.note}</span>}
                   </button>
+                  {SIDES.map((side) => (
+                    <span
+                      key={side}
+                      className="board-handle"
+                      data-id={b.id}
+                      data-side={side}
+                      title={t('Потяните, чтобы связать', 'Drag to connect')}
+                    />
+                  ))}
                   {b.kind !== 'folder' && (
                     <button
                       className="card-check"
@@ -925,12 +902,12 @@ export default function BoardCanvas({
                 )
               : selectedLink
                 ? t(
-                    'Нажмите ×  или Delete, чтобы убрать нить',
-                    'Press × or Delete to remove the string',
+                    'Нажмите × или Delete, чтобы убрать связь',
+                    'Press × or Delete to remove the connection',
                   )
                 : t(
-                    'Тяните за булавку, чтобы протянуть нить. Нажмите на нить, чтобы её убрать',
-                    'Drag a pin to tie a string. Click a string to remove it',
+                    'Тяните за точку на краю карточки, чтобы связать. Нажмите на связь, чтобы её убрать',
+                    'Drag a dot on a card edge to connect. Click a connection to remove it',
                   )}
           </p>
         </div>

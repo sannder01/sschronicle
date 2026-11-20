@@ -1,7 +1,7 @@
 'use client'
-// Board page: task folders and open tasks on one cork board, Obsidian-style.
-// Folders are cards too. Nesting (task in folder, folder in folder) is drawn as
-// fixed threads; red strings tie a task to a task or a folder to a folder.
+// Board page: task folders and open tasks on one canvas, Obsidian Canvas style.
+// Folders are cards too. Nesting (task in folder, folder in folder) is drawn as fixed
+// dashed arrows; hand-drawn edges join a task to a task or a folder to a folder.
 import { useMemo, useState } from 'react'
 import { useApp } from '@/components/AppContext'
 import { useTasks } from '@/components/tasks/TasksContext'

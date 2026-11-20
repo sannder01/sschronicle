@@ -67,8 +67,12 @@ test('board: nested folders, folder strings, task strings, no schedule', async (
     .poll(async () => (await call(api, '/api/folders')).filter((f) => f.canvas_x != null).length)
     .toBeGreaterThanOrEqual(3)
 
-  // tie two folders with a string
-  await dragTo(page, page.locator(`.board-pin[data-id="${-work.id}"]`), homeCard)
+  // connect two folders: drag from a side handle onto the other card
+  await dragTo(
+    page,
+    page.locator(`.board-handle[data-id="${-work.id}"][data-side="right"]`),
+    homeCard,
+  )
   const tied = async () =>
     (await call(api, '/api/folders/links')).filter(
       (l) => l.from_id === Math.min(work.id, home.id) && l.to_id === Math.max(work.id, home.id),
@@ -83,12 +87,13 @@ test('board: nested folders, folder strings, task strings, no schedule', async (
   expect(await tied()).toBe(1)
   expect((await call(api, '/api/tasks/links')).some((l) => l.from_id === task.id)).toBe(false)
 
-  // cut the folder string: click it, then the remove button
+  // remove the folder edge: click it, then the remove button
   const point = await page
     .locator(`.rope:not(.fixed)[data-from="${-home.id}"] .rope-hit`)
     .first()
     .evaluate((path) => {
-      const p = path.getPointAtLength(path.getTotalLength() / 2),
+      // near the start: edges run under cards, so the middle may be covered
+      const p = path.getPointAtLength(Math.min(30, path.getTotalLength() / 2)),
         m = path.getScreenCTM()
       return { x: p.x * m.a + p.y * m.c + m.e, y: p.x * m.b + p.y * m.d + m.f }
     })

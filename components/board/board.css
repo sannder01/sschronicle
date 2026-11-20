@@ -1,24 +1,20 @@
-/* ---------- Day board (detective wall) ---------- */
+/* ---------- Board (Obsidian Canvas style) ---------- */
 .board-page {
-  --board-bg: #c79c6b;
-  --cork-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='d' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.3' numOctaves='3' seed='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.27  0 0 0 0 0.15  0 0 0 0 0.05  4.2 0 0 0 -2.25'/%3E%3C/filter%3E%3Cfilter id='l' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.36' numOctaves='2' seed='11' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.86  0 0 0 0 0.71  0 0 0 0 0.5  0 3.4 0 0 -1.95'/%3E%3C/filter%3E%3Cfilter id='f' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='1' seed='5' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.3  0 0 0 0 0.18  0 0 0 0 0.08  0 0 3 0 -1.45'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3Crect width='100%25' height='100%25' filter='url(%23d)'/%3E%3Crect width='100%25' height='100%25' filter='url(%23l)'/%3E%3C/svg%3E");
-  --cork-mottle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='640'%3E%3Cfilter id='m' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.006' numOctaves='3' seed='9' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.35  0 0 0 0 0.2  0 0 0 0 0.08  1.6 0 0 0 -0.62'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23m)'/%3E%3C/svg%3E");
-  --frame: #8a5a32;
-  --frame-dark: #5c3a1e;
-  --string: #d0342c;
-  --string-glow: rgb(208 52 44 / 35%);
-  --card-bg: #fffdf8;
-  --card-ink: #2b2925;
-  --card-soft: #6f685c;
+  --board-bg: #f7f7f7;
+  --board-dot: #d4d4d8;
+  --card-bg: #ffffff;
+  --card-border: #d9d9de;
+  --edge: #a3a3ab;
+  --edge-fixed: #c2c2c8;
+  --edge-danger: var(--danger);
 }
 [data-theme='dark'] .board-page {
-  /* Cork in a dim room: same board, lower light. */
-  --board-bg: #8e6b46;
-  --frame: #5e3d22;
-  --frame-dark: #3b2512;
-  --string: #ff5a4e;
-  --string-glow: rgb(255 90 78 / 40%);
-  --card-bg: #f3ecdd;
+  --board-bg: #1e1e1e;
+  --board-dot: #3a3a3d;
+  --card-bg: #262626;
+  --card-border: #3f3f44;
+  --edge: #8c8c93;
+  --edge-fixed: #5c5c63;
 }
 .board-header {
   display: flex;
@@ -41,25 +37,16 @@
 .board {
   position: relative;
   height: clamp(460px, calc(100dvh - 190px), 1100px);
-  border-radius: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
   overflow: hidden;
-  /* wooden frame drawn outside the cork so pointer maths keep the same origin */
-  margin: 12px;
   touch-action: none;
   cursor: grab;
   isolation: isolate;
   background-color: var(--board-bg);
-  background-image: var(--cork-grain), var(--cork-mottle);
-  background-size:
-    220px 220px,
-    640px 640px;
-  box-shadow:
-    inset 0 0 0 1px var(--frame-dark),
-    inset 0 3px 10px rgb(40 20 5 / 45%),
-    inset 0 0 70px rgb(60 30 5 / 30%),
-    0 0 0 12px var(--frame),
-    0 0 0 13px var(--frame-dark),
-    0 18px 34px -10px rgb(30 15 0 / 50%);
+  /* one dot per grid cell; size and position follow the camera (see applyCamera) */
+  background-image: radial-gradient(circle, var(--board-dot) 1.1px, transparent 1.4px);
+  background-size: 20px 20px;
   -webkit-user-select: none;
   user-select: none;
 }
@@ -70,17 +57,6 @@
   outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
-/* parallax layers: slower and softer than the board, so depth reads while panning */
-.board-layer {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: -1;
-}
-.board-layer.far,
-.board-layer.near {
-  display: none;
-}
 .board-world {
   position: absolute;
   left: 0;
@@ -89,7 +65,7 @@
   will-change: transform;
 }
 
-/* strings */
+/* edges */
 .board-ropes {
   position: absolute;
   left: 0;
@@ -97,7 +73,7 @@
   width: 1px;
   height: 1px;
   overflow: visible;
-  z-index: 3;
+  z-index: 1;
   pointer-events: none;
 }
 .board-ropes path {
@@ -105,20 +81,12 @@
   stroke-linecap: round;
 }
 .rope {
-  transition: opacity 260ms ease;
+  transition: opacity 200ms ease;
 }
 .rope-string {
-  stroke: var(--string);
-  stroke-width: 2.2;
-  transition:
-    stroke-width 220ms var(--spring),
-    filter 220ms ease;
-}
-.rope-shadow {
-  stroke: rgb(0 0 0 / 18%);
-  stroke-width: 3;
-  transform: translate(2px, 5px);
-  filter: blur(1.5px);
+  stroke: var(--edge);
+  stroke-width: 2.5;
+  transition: stroke 160ms ease;
 }
 .rope-hit {
   stroke: transparent;
@@ -127,41 +95,64 @@
   cursor: pointer;
 }
 .rope.dim {
-  opacity: 0.16;
+  opacity: 0.2;
 }
-.rope.lit .rope-string {
-  stroke-width: 3;
-}
-.rope.selected .rope-string,
-.rope-hit:hover + .rope-string,
+.rope.lit .rope-string,
 .rope:hover .rope-string {
-  stroke-width: 3.4;
-  filter: drop-shadow(0 0 5px var(--string-glow));
+  stroke: var(--accent);
+}
+.rope.selected .rope-string {
+  stroke: var(--accent);
+  stroke-width: 3.5;
+}
+/* Nesting edges (folder → its contents): dashed, quieter, with an arrow. */
+.rope.fixed .rope-string {
+  stroke: var(--edge-fixed);
+  stroke-width: 2;
+  stroke-dasharray: 6 6;
+}
+.rope.fixed.lit .rope-string {
+  stroke: color-mix(in srgb, var(--accent) 60%, var(--edge-fixed));
+}
+.rope.fixed .rope-hit {
+  pointer-events: none;
+}
+.rope.fixed:hover .rope-string {
+  stroke: var(--edge-fixed);
+}
+.edge-arrow {
+  fill: var(--edge);
+  stroke: none;
 }
 .rope-temp {
-  stroke: var(--string);
-  stroke-width: 2.4;
-  stroke-dasharray: 2 6;
+  stroke: var(--accent);
+  stroke-width: 2.5;
   opacity: 0;
-  transition: opacity 160ms ease;
+  transition: opacity 120ms ease;
 }
 .rope-temp[data-visible='true'] {
-  opacity: 0.9;
+  opacity: 1;
 }
 .rope-cut {
   position: absolute;
-  left: -15px;
-  top: -15px;
+  left: -14px;
+  top: -14px;
   z-index: 6;
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
-  background: var(--string);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  color: var(--danger);
+  box-shadow: var(--shadow);
+  animation: cut-pop 240ms var(--spring) both;
+}
+.rope-cut:hover {
+  background: var(--danger);
+  border-color: var(--danger);
   color: #fff;
-  box-shadow: 0 4px 14px var(--string-glow);
-  animation: cut-pop 360ms var(--spring-bounce) both;
 }
 .rope-cut::after {
   content: '';
@@ -170,163 +161,135 @@
 }
 @keyframes cut-pop {
   from {
-    scale: 0.3;
+    scale: 0.4;
     opacity: 0;
   }
 }
 
 /* cards */
 .board-card {
+  --card-color: var(--card-border);
   position: absolute;
   left: 0;
   top: 0;
   z-index: 2;
   width: 210px;
   min-height: 112px;
-  border-radius: 6px;
-  background: var(--card-bg);
-  /* tilt pivots around the pin, like a card hanging on it */
-  transform-origin: 50% 10px;
-  box-shadow:
-    0 1px 1px rgb(0 0 0 / 8%),
-    0 6px 16px rgb(60 40 10 / 12%);
+  border-radius: 8px;
+  border: 2px solid var(--card-color);
+  background: color-mix(in srgb, var(--card-color) 7%, var(--card-bg));
   cursor: grab;
-  scale: 1;
   transition:
-    opacity 260ms ease,
-    filter 260ms ease,
-    box-shadow 260ms ease,
-    scale 360ms var(--spring);
+    opacity 200ms ease,
+    border-color 160ms ease,
+    box-shadow 200ms ease;
 }
-.board-card::before {
-  /* coloured tape across the top */
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  height: 5px;
-  border-radius: 6px 6px 0 0;
-  background: var(--tape, var(--accent));
-}
-/* Folder cards: a manila folder with a tab in the folder's colour. */
+/* Folders read like Obsidian groups: a stronger tint of their colour. */
 .board-card.folder-card {
-  border-radius: 3px 8px 8px 8px;
-  background: linear-gradient(170deg, #f4dfa6, #ecd08a);
-}
-.board-card.folder-card::before {
-  left: 0;
-  right: auto;
-  top: -11px;
-  width: 92px;
-  height: 14px;
-  border-radius: 7px 9px 0 0;
-  background: color-mix(in srgb, var(--tape, #d9b45f) 70%, #ecd08a);
-  clip-path: polygon(0 100%, 0 25%, 6% 0, 82% 0, 100% 100%);
-}
-.folder-card .card-body {
-  color: #3d2f12;
-  padding-right: 14px;
+  background: color-mix(in srgb, var(--card-color) 16%, var(--card-bg));
 }
 .folder-card .card-title {
   font-size: 17px;
 }
-.folder-card .card-time {
-  color: #6d5626;
-  order: 2;
-}
 .card-folder-icon {
   display: flex;
-  color: color-mix(in srgb, var(--tape, #b48a2f) 80%, #3d2f12);
+  color: var(--card-color);
   margin-bottom: 2px;
 }
-/* Nesting threads: thin and calm, so hand-tied red strings stay the loud ones. */
-.rope.fixed .rope-string {
-  stroke: #f7f1e3;
-  stroke-width: 1.6;
-  stroke-dasharray: 1 5;
-}
-.rope.fixed .rope-shadow {
-  opacity: 0.5;
-}
-.rope.fixed .rope-hit {
-  pointer-events: none;
-}
-.rope.fixed:hover .rope-string {
-  stroke-width: 1.6;
-  filter: none;
-}
 .board-card:hover {
-  box-shadow:
-    0 1px 1px rgb(0 0 0 / 8%),
-    0 10px 24px rgb(60 40 10 / 16%);
+  box-shadow: 0 0 0 1px var(--card-color);
 }
 .board-card[data-lifted] {
   z-index: 5;
-  scale: 1.05;
   cursor: grabbing;
-  box-shadow:
-    0 2px 4px rgb(0 0 0 / 10%),
-    0 24px 48px rgb(40 25 5 / 26%);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 22%);
 }
 .board-card.dim {
-  opacity: 0.38;
-  filter: saturate(0.5);
+  opacity: 0.4;
 }
 .board-card.selected {
-  box-shadow:
-    0 0 0 2px var(--accent),
-    0 10px 26px rgb(60 40 10 / 18%);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 .board-card[data-target] {
-  scale: 1.04;
-  box-shadow:
-    0 0 0 2px var(--string),
-    0 0 26px var(--string-glow);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 25%, transparent);
 }
 .board-card.link-source {
   animation: link-pulse 1.4s ease-in-out infinite;
 }
 @keyframes link-pulse {
   50% {
-    box-shadow:
-      0 0 0 3px var(--string),
-      0 0 22px var(--string-glow);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 35%, transparent);
   }
 }
 .board.is-linking .board-card:not(.link-source) {
   cursor: crosshair;
 }
-.board-pin {
-  pointer-events: all;
+
+/* connection handles: a dot in the middle of each side, shown on hover */
+.board-handle {
+  position: absolute;
+  z-index: 3;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  background: var(--card-bg);
+  border: 2px solid var(--card-color);
   cursor: crosshair;
-  transition: opacity 260ms ease;
+  opacity: 0;
+  transition:
+    opacity 140ms ease,
+    scale 160ms var(--spring),
+    background-color 140ms ease;
 }
-.board-pin.dim {
-  opacity: 0.4;
+.board-handle::after {
+  content: '';
+  position: absolute;
+  inset: -9px;
+  border-radius: 50%;
 }
-.pin-hit {
-  fill: transparent;
+.board-handle[data-side='top'] {
+  left: 50%;
+  top: -1px;
 }
-.pin-head {
-  fill: url(#pin-head);
-  filter: drop-shadow(0 2px 2px rgb(0 0 0 / 35%));
-  transform-box: fill-box;
-  transform-origin: center;
-  transition: scale 320ms var(--spring-bounce);
+.board-handle[data-side='bottom'] {
+  left: 50%;
+  top: calc(100% + 1px);
 }
-.board-pin:hover .pin-head {
-  scale: 1.25;
+.board-handle[data-side='left'] {
+  left: -1px;
+  top: 50%;
 }
+.board-handle[data-side='right'] {
+  left: calc(100% + 1px);
+  top: 50%;
+}
+.board-card:hover .board-handle,
+.board-card.selected .board-handle,
+.board-card:focus-within .board-handle {
+  opacity: 1;
+}
+.board-handle:hover {
+  scale: 1.35;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.board-card[data-lifted] .board-handle,
+.board.is-linking .board-handle {
+  opacity: 0;
+}
+
 .card-body {
   display: grid;
   gap: 3px;
   width: 100%;
-  min-height: 112px;
+  min-height: 108px;
   align-content: start;
-  padding: 20px 34px 14px 14px;
+  padding: 14px 36px 14px 14px;
   text-align: left;
-  color: var(--card-ink);
+  color: var(--text);
   cursor: inherit;
   border-radius: 6px;
 }
@@ -335,9 +298,12 @@
 }
 .card-time {
   font-size: 11px;
-  color: color-mix(in srgb, var(--accent) 70%, var(--muted));
+  color: var(--muted);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+}
+.folder-card .card-time {
+  order: 2;
 }
 .card-title {
   font-size: 15px;
@@ -347,7 +313,7 @@
 }
 .card-note {
   font-size: 12px;
-  color: var(--card-soft);
+  color: var(--muted);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -356,18 +322,17 @@
 .card-check {
   position: absolute;
   right: 10px;
-  top: 16px;
+  top: 12px;
   display: grid;
   place-items: center;
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  border: 1.5px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--card-color) 70%, var(--muted));
   color: transparent;
   transition:
     background-color 200ms ease,
-    color 200ms ease,
-    transform 320ms var(--spring-bounce);
+    color 200ms ease;
 }
 .card-check::after {
   content: '';
@@ -380,7 +345,7 @@
   color: var(--on-accent);
 }
 .board-card.done .card-body {
-  opacity: 0.6;
+  opacity: 0.55;
 }
 .board-card.done .card-title {
   text-decoration: line-through;
@@ -404,12 +369,6 @@
 .board-empty p {
   max-width: 340px;
   font-size: 14px;
-}
-/* Text sits straight on the cork, so it gets a light ink and a soft shadow. */
-.board-empty h3,
-.board-empty p {
-  color: #fff8ec;
-  text-shadow: 0 1px 3px rgb(40 20 0 / 70%);
 }
 .board-toolbar {
   position: absolute;
@@ -454,8 +413,7 @@
   line-height: 1.45;
   z-index: 7;
   font-size: 11px;
-  color: #fff8ec;
-  text-shadow: 0 1px 2px rgb(40 20 0 / 60%);
+  color: var(--muted);
   pointer-events: none;
 }
 
