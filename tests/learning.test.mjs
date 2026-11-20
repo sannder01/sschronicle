@@ -10,6 +10,8 @@ import {
 } from '../lib/learning-shape.mjs'
 import { requestLearningSuggestion } from '../lib/learning-ai.js'
 
+const testConfig = { provider: 'groq', key: 'test-only', model: 'openai/gpt-oss-120b' }
+
 const nodes = [
   { id: 1, kind: 'topic', title: 'A', status: 'mastered', position: 0 },
   { id: 2, kind: 'goal', title: 'B', status: 'learning', position: 1 },
@@ -145,6 +147,7 @@ test('AI module uses mocked fetch and rejects an invalid provider payload', asyn
     const suggestion = await requestLearningSuggestion({
       mode: 'structure',
       context: {},
+      config: testConfig,
       fetchImpl: async (_url, options) => {
         assert.equal(options.headers.Authorization, 'Bearer test-only')
         return {
@@ -160,6 +163,7 @@ test('AI module uses mocked fetch and rejects an invalid provider payload', asyn
       requestLearningSuggestion({
         mode: 'structure',
         context: {},
+        config: testConfig,
         fetchImpl: async () => ({
           ok: true,
           json: async () => ({ choices: [{ message: { content: 'nope' } }] }),
@@ -189,6 +193,7 @@ test('AI module waits out a short provider rate limit and names other failures',
     const ok = await requestLearningSuggestion({
       mode: 'route',
       context: {},
+      config: testConfig,
       fetchImpl: async (_url, options) => {
         calls++
         assert.equal(JSON.parse(options.body).reasoning_effort, 'low')
@@ -202,6 +207,7 @@ test('AI module waits out a short provider rate limit and names other failures',
       requestLearningSuggestion({
         mode: 'route',
         context: {},
+        config: testConfig,
         fetchImpl: async () => reply(429, ''),
       }),
       (error) =>
@@ -213,6 +219,7 @@ test('AI module waits out a short provider rate limit and names other failures',
       requestLearningSuggestion({
         mode: 'route',
         context: {},
+        config: testConfig,
         fetchImpl: async () => (calls++, reply(429, '', '40')),
       }),
       { code: 'AI_BUSY' },
@@ -222,6 +229,7 @@ test('AI module waits out a short provider rate limit and names other failures',
       requestLearningSuggestion({
         mode: 'route',
         context: {},
+        config: testConfig,
         fetchImpl: async () => reply(401, ''),
       }),
       { code: 'AI_KEY_INVALID' },
@@ -230,6 +238,7 @@ test('AI module waits out a short provider rate limit and names other failures',
       requestLearningSuggestion({
         mode: 'route',
         context: {},
+        config: testConfig,
         fetchImpl: async () => reply(500, ''),
       }),
       { code: 'AI_PROVIDER_ERROR' },
@@ -248,6 +257,7 @@ test('AI module asks once more when a structure answer has no topics', async () 
     const result = await requestLearningSuggestion({
       mode: 'structure',
       context: {},
+      config: testConfig,
       fetchImpl: async () => {
         calls++
         const content =

@@ -332,3 +332,32 @@
     bottom: 70px;
   }
 }
+
+/* full screen: the graph covers everything, the page underneath does not scroll */
+.graph.is-full {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  height: 100dvh;
+  border: 0;
+  border-radius: 0;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+}
+.graph:fullscreen {
+  height: 100%;
+}
+.graph.is-full .graph-zoom {
+  left: calc(14px + env(safe-area-inset-left));
+  bottom: calc(14px + env(safe-area-inset-bottom));
+}
+.graph.is-full .graph-settings {
+  top: calc(14px + env(safe-area-inset-top));
+  right: calc(14px + env(safe-area-inset-right));
+}
+.graph-zoom-sep {
+  width: 1px;
+  height: 22px;
+  margin: 0 2px;
+  background: var(--border);
+}

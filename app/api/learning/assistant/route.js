@@ -2,19 +2,25 @@ import { api, json, readJson } from '@/lib/api'
 import { query } from '@/lib/db'
 import { consumeRateLimit } from '@/lib/rate-limit'
 import { requestLearningSuggestion } from '@/lib/learning-ai'
+import { resolveAiConfig } from '@/lib/ai-config.js'
 import { ownerMap, ownerNode, id } from '@/lib/learning'
 import { text, oneOf } from '@/lib/validation'
 import { ApiError } from '@/lib/api-error.js'
 export const dynamic = 'force-dynamic'
 // Vercel stops functions after 10 s by default; a structure answer plus one retry needs longer
 export const maxDuration = 60
-const model = () => process.env.GROQ_MODEL || 'openai/gpt-oss-120b'
-export const GET = api(async () =>
-  json({ available: Boolean(process.env.GROQ_API_KEY?.trim()), model: model() }),
-)
+export const GET = api(async (_req, _ctx, { user }) => {
+  const config = await resolveAiConfig(user.id)
+  return json({
+    available: Boolean(config),
+    source: config?.source ?? null,
+    provider: config?.provider ?? null,
+    model: config?.model ?? null,
+  })
+})
 export const POST = api(async (req, ctx, { user }) => {
-  if (!process.env.GROQ_API_KEY?.trim())
-    throw new ApiError(503, 'AI assistant is not configured.', 'AI_NOT_CONFIGURED')
+  const config = await resolveAiConfig(user.id)
+  if (!config) throw new ApiError(503, 'AI assistant is not configured.', 'AI_NOT_CONFIGURED')
   const body = await readJson(req, 8192)
   const mode = oneOf(
     body.mode,
@@ -26,7 +32,11 @@ export const POST = api(async (req, ctx, { user }) => {
   const goal = body.goal === undefined ? '' : text(body.goal, { field: 'goal', max: 500, min: 0 })
   const level =
     body.level === undefined ? '' : text(body.level, { field: 'level', max: 500, min: 0 })
-  const limited = await consumeRateLimit('learning-ai:' + user.id, 20, 3600)
+  const limited = await consumeRateLimit(
+    'learning-ai:' + config.source + ':' + user.id,
+    config.source === 'user' ? 60 : 20,
+    3600,
+  )
   if (!limited.allowed) throw new ApiError(429, 'Too many AI requests.', 'RATE_LIMITED')
   let context = { topic, goal, level, existingIds: [] },
     language = 'ru'
@@ -63,6 +73,6 @@ export const POST = api(async (req, ctx, { user }) => {
       context.existingIds = nodes.map((n) => n.id)
     }
   }
-  const suggestion = await requestLearningSuggestion({ mode, language, context })
+  const suggestion = await requestLearningSuggestion({ mode, language, context, config })
   return json({ suggestion })
 })

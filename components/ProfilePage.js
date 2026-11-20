@@ -5,6 +5,7 @@ import { useApp } from './AppContext'
 import { Avatar } from './AppShell'
 import { Button, Input, Dialog, LoadingState, ErrorState, Select } from './ui'
 import Icon from './Icon'
+import AiKeyPanel from './AiKeyPanel'
 import { ACCENTS } from './accents'
 import { api, clearPrivateCache } from '@/lib/client'
 
@@ -432,6 +433,7 @@ export default function ProfilePage() {
             )}
           </section>
           <ChatGPTPanel t={t} />
+          <AiKeyPanel t={t} />
           <section className="panel settings-panel">
             <h2>{t('Вход и безопасность', 'Sign-in & security')}</h2>
             <div className="setting-row">

@@ -10,6 +10,7 @@ import { forceSimulation, forceManyBody, forceLink, forceX, forceY, forceCollide
 import { useApp } from '@/components/AppContext'
 import { ErrorState } from '@/components/ui'
 import Icon from '@/components/Icon'
+import { useFullscreen } from '@/components/useFullscreen'
 import './graph.css'
 
 const MIN_K = 0.15
@@ -65,6 +66,7 @@ export default function GraphView({
 }) {
   const { t, notify } = useApp()
   const [settings, update] = useSettings()
+  const fullscreen = useFullscreen()
   const [links, setLinks] = useState([]),
     [hover, setHover] = useState(null),
     [selectedLink, setSelectedLink] = useState(null),
@@ -481,7 +483,7 @@ export default function GraphView({
 
   if (error) return <ErrorState error={error} onRetry={onRetry} t={t} />
   return (
-    <div className="graph">
+    <div ref={fullscreen.ref} className={`graph ${fullscreen.full ? 'is-full' : ''}`}>
       <svg
         ref={svgRef}
         className={`graph-canvas ${hover != null ? 'has-hover' : ''}`}
@@ -627,6 +629,22 @@ export default function GraphView({
           onClick={() => zoomBy(1.3)}
         >
           <Icon name="plus" size={18} />
+        </button>
+        <span className="graph-zoom-sep" />
+        <button
+          className="icon-button"
+          aria-pressed={fullscreen.full}
+          aria-label={
+            fullscreen.full
+              ? t('Выйти из полноэкранного режима', 'Exit full screen')
+              : t('Во весь экран', 'Full screen')
+          }
+          title={
+            fullscreen.full ? t('Выйти (Esc)', 'Exit (Esc)') : t('Во весь экран', 'Full screen')
+          }
+          onClick={fullscreen.toggle}
+        >
+          <Icon name={fullscreen.full ? 'shrink' : 'expand'} size={18} />
         </button>
       </div>
 

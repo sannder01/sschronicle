@@ -42,10 +42,11 @@ export default function MapPage({ id }) {
     [adding, setAdding] = useState(null),
     [editingMap, setEditingMap] = useState(null),
     [aiRequest, setAiRequest] = useState(null),
-    [aiAvailable, setAiAvailable] = useState(false),
+    [aiStatus, setAiStatus] = useState(null),
     [arrange, setArrange] = useState(0),
     [statusFilter, setStatusFilter] = useState('all'),
-    [search, setSearch] = useState('')
+    [search, setSearch] = useState(''),
+    [mapFull, setMapFull] = useState(false)
 
   const load = useCallback(async () => {
     setError(null)
@@ -65,8 +66,8 @@ export default function MapPage({ id }) {
   useEffect(() => {
     learningApi
       .assistantStatus()
-      .then((s) => setAiAvailable(Boolean(s?.available)))
-      .catch(() => setAiAvailable(false))
+      .then(setAiStatus)
+      .catch(() => setAiStatus({ available: false }))
   }, [])
   // ?node=<id> opens a topic directly (links from "Up next")
   useEffect(() => {
@@ -74,6 +75,7 @@ export default function MapPage({ id }) {
     if (data && n && data.nodes.some((x) => x.id === n)) setSelectedId(n)
   }, [data, params])
   const currentView = view || (wide ? 'map' : 'list')
+  const aiAvailable = Boolean(aiStatus?.available)
 
   const nodes = useMemo(() => data?.nodes || [], [data])
   const edges = useMemo(() => data?.edges || [], [data])
@@ -422,13 +424,16 @@ export default function MapPage({ id }) {
       {!aiAvailable && (
         <p className="lm-ai-off muted small" role="note">
           {t(
-            'AI-помощник пока недоступен: на сервере не задан ключ. Карты работают как обычно.',
-            'The AI assistant is not available: no key is set on the server. Maps work as usual.',
+            'AI-помощник пока недоступен. Карты работают как обычно. ',
+            'The AI assistant is not available. Maps work as usual. ',
           )}
+          <Link href="/app/profile#ai">
+            {t('Подключить свой ключ Groq или Gemini', 'Connect your own Groq or Gemini key')}
+          </Link>
         </p>
       )}
 
-      <div className={`lm-workspace ${selected && wide ? 'with-panel' : ''}`}>
+      <div className={`lm-workspace ${selected && wide && !mapFull ? 'with-panel' : ''}`}>
         <div className="lm-main">
           {!nodes.length ? (
             <div className="lm-empty panel">
@@ -470,6 +475,7 @@ export default function MapPage({ id }) {
               onConnect={addEdge}
               onDeleteEdge={deleteEdge}
               arrangeSignal={arrange}
+              onFullscreenChange={setMapFull}
             />
           ) : (
             <MapTree
@@ -484,14 +490,14 @@ export default function MapPage({ id }) {
             />
           )}
         </div>
-        {selected && wide && (
+        {selected && wide && !mapFull && (
           <aside className="panel lm-side" aria-label={t('Тема', 'Topic')}>
             <NodePanel key={selected.id} {...panelProps} onClose={() => setSelectedId(null)} />
           </aside>
         )}
       </div>
 
-      {!wide && (
+      {(!wide || mapFull) && (
         <Dialog
           open={!!selected}
           title={selected?.title || ''}
@@ -587,6 +593,7 @@ export default function MapPage({ id }) {
         request={aiRequest}
         map={map}
         nodes={nodes}
+        aiStatus={aiStatus}
         onClose={() => setAiRequest(null)}
         onApplied={() => load()}
       />

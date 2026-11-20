@@ -52,7 +52,9 @@ const MODES = [
   ],
 ]
 
-export default function AssistantDialog({ request, map, nodes, onClose, onApplied }) {
+const PROVIDER_LABEL = { groq: 'Groq', gemini: 'Google Gemini' }
+
+export default function AssistantDialog({ request, map, nodes, aiStatus, onClose, onApplied }) {
   const { t, notify } = useApp()
   const [mode, setMode] = useState('structure'),
     [form, setForm] = useState({ topic: '', goal: '', level: '' }),
@@ -228,6 +230,16 @@ export default function AssistantDialog({ request, map, nodes, onClose, onApplie
                 {t(
                   'Помощнику отправляются только название и тема карты, названия и статусы тем и то, что вы ввели выше.',
                   'Only the map title and topic, topic titles and statuses, and what you typed above are sent to the assistant.',
+                )}
+                {aiStatus?.provider && (
+                  <>
+                    {' '}
+                    {aiStatus.source === 'user'
+                      ? t('Работает через ваш ключ ', 'Uses your key: ')
+                      : t('Работает через общий ключ ', 'Uses the shared key: ')}
+                    {PROVIDER_LABEL[aiStatus.provider] || aiStatus.provider}
+                    {aiStatus.model ? ' · ' + aiStatus.model : ''}.
+                  </>
                 )}
               </p>
             </>

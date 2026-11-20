@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useApp } from '@/components/AppContext'
 import Icon from '@/components/Icon'
 import { kindLabel, statusLabel } from './shared'
+import { useFullscreen } from '@/components/useFullscreen'
 
 export const CARD_W = 200
 export const CARD_H = 66
@@ -65,8 +66,18 @@ export default function ConceptMap({
   onConnect,
   onDeleteEdge,
   arrangeSignal,
+  onFullscreenChange,
 }) {
   const { t } = useApp()
+  const fullscreen = useFullscreen()
+  const fullOnce = useRef(false)
+  useEffect(() => {
+    if (!fullOnce.current) return void (fullOnce.current = true) // not on first render
+    onFullscreenChange?.(fullscreen.full)
+    // the canvas changed size: frame everything again
+    requestAnimationFrame(() => animateCamera(fitTarget()))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fullscreen.full])
   const boardRef = useRef(null),
     worldRef = useRef(null),
     tempRef = useRef(null),
@@ -457,7 +468,7 @@ export default function ConceptMap({
   return (
     <div
       ref={boardRef}
-      className={`cm-board ${far ? 'is-far' : ''}`}
+      className={`cm-board ${far ? 'is-far' : ''} ${fullscreen.full ? 'is-full' : ''}`}
       role="application"
       aria-roledescription={t('карта знаний', 'concept map')}
       aria-label={t(
@@ -598,6 +609,22 @@ export default function ConceptMap({
           onClick={() => zoomBy(1.25)}
         >
           <Icon name="plus" size={18} />
+        </button>
+        <span className="graph-zoom-sep" />
+        <button
+          className="icon-button"
+          aria-pressed={fullscreen.full}
+          aria-label={
+            fullscreen.full
+              ? t('Выйти из полноэкранного режима', 'Exit full screen')
+              : t('Во весь экран', 'Full screen')
+          }
+          title={
+            fullscreen.full ? t('Выйти (Esc)', 'Exit (Esc)') : t('Во весь экран', 'Full screen')
+          }
+          onClick={fullscreen.toggle}
+        >
+          <Icon name={fullscreen.full ? 'shrink' : 'expand'} size={18} />
         </button>
       </div>
       <p className="cm-hint" aria-hidden="true">

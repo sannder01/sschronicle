@@ -16,6 +16,13 @@ export const GET = api(async (req, context, { user }) => {
       exported_at: new Date().toISOString(),
       profile,
     }
+    result.ai_settings =
+      (
+        await client.query(
+          'SELECT provider,model,key_last4,verified_at FROM user_ai_settings WHERE user_id=$1',
+          [user.id],
+        )
+      ).rows[0] ?? null
     for (const table of [
       'tasks',
       'folders',

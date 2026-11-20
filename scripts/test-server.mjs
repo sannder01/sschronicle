@@ -76,6 +76,7 @@ try {
         NODE_ENV: 'development',
         NEXTAUTH_URL: 'http://127.0.0.1:3100',
         NEXTAUTH_SECRET: 'chronicle-isolated-e2e-local-secret-2026-only',
+        AI_KEYS_SECRET: 'chronicle-isolated-e2e-ai-keys-secret-only',
         GOOGLE_CLIENT_ID: 'isolated-test-client',
         GOOGLE_CLIENT_SECRET: 'isolated-test-secret',
         TG_WEBHOOK_SECRET: 'local-webhook-test',

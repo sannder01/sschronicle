@@ -2682,3 +2682,23 @@ input[type='checkbox']:active {
     transform: scale(0.96) translateY(4px);
   }
 }
+.ai-model-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.ai-model-row code {
+  overflow-wrap: anywhere;
+}
+/* a canvas in full-screen mode sits above the app's own bars */
+.canvas-fullscreen .mobile-nav,
+.canvas-fullscreen .mobile-top {
+  visibility: hidden;
+}
+.canvas-fullscreen .sheet-overlay,
+.canvas-fullscreen .sheet,
+.canvas-fullscreen [data-sonner-toaster] {
+  z-index: 1100;
+}
