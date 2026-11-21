@@ -36,6 +36,7 @@ export const GET = api(async (req, context, { user }) => {
       'schedule_blocks',
       'schedule_links',
       'timetable_entries',
+      'timetable_done',
       'task_links',
       'folder_links',
       'learning_maps',
@@ -43,8 +44,11 @@ export const GET = api(async (req, context, { user }) => {
       'learning_edges',
       'learning_materials',
     ]) {
+      const order = table === 'timetable_done' ? 'entry_id,day' : 'id'
       result[table] = (
-        await client.query('SELECT * FROM ' + table + ' WHERE user_id=$1 ORDER BY id', [user.id])
+        await client.query('SELECT * FROM ' + table + ' WHERE user_id=$1 ORDER BY ' + order, [
+          user.id,
+        ])
       ).rows
     }
     result.telegram =

@@ -9,7 +9,7 @@ import { ACCENTS } from '@/components/accents'
 import { api } from '@/lib/client'
 import { DAYS, KINDS, fmt, parseTime, breakLabel, overlaps } from './timetable-shape'
 
-const LENGTHS = [50, 80, 90, 120]
+const LENGTHS = [15, 30, 60, 90, 120]
 
 export default function TimetableEditor({ value, entries = [], onClose, onSaved }) {
   const { t, notify } = useApp()
@@ -53,7 +53,7 @@ export default function TimetableEditor({ value, entries = [], onClose, onSaved 
     title: draft.title.trim(),
     kind: draft.kind,
     room: draft.room.trim(),
-    teacher: draft.teacher.trim(),
+    teacher: (draft.teacher || '').trim(),
     note: draft.note,
     color: draft.color,
   })
@@ -83,7 +83,7 @@ export default function TimetableEditor({ value, entries = [], onClose, onSaved 
     } catch (err) {
       setError(
         err?.code === 'LIMIT_REACHED'
-          ? t('Слишком много занятий в этот день', 'Too many classes on that day')
+          ? t('Слишком много дел в этот день', 'Too many items on that day')
           : t('Не удалось сохранить', 'Could not save'),
       )
     } finally {
@@ -94,7 +94,7 @@ export default function TimetableEditor({ value, entries = [], onClose, onSaved 
     setBusy(true)
     try {
       await api('/api/timetable/' + editingId, { method: 'DELETE' })
-      notify(t('Пара удалена', 'Class removed'))
+      notify(t('Дело удалено', 'Item removed'))
       onSaved?.()
       onClose()
     } catch {
@@ -128,26 +128,26 @@ export default function TimetableEditor({ value, entries = [], onClose, onSaved 
   return (
     <Dialog
       open={!!value}
-      title={editingId ? t('Изменить пару', 'Edit class') : t('Новая пара', 'New class')}
+      title={editingId ? t('Изменить дело', 'Edit item') : t('Новое дело', 'New item')}
       onClose={() => !busy && onClose()}
     >
       {draft && (
         <form className="stack tt-editor" onSubmit={submit}>
           <label className="field">
-            {t('Предмет', 'Subject')}
+            {t('Что делаю', 'What')}
             <Input
               autoFocus={!editingId}
               required
               maxLength={120}
-              placeholder={t('Например, Матанализ', 'For example, Calculus')}
+              placeholder={t('Например, Зарядка или Учёба', 'For example, Workout or Study')}
               value={draft.title}
               onChange={(e) => set({ title: e.target.value })}
             />
           </label>
 
           <fieldset className="field tt-fieldset">
-            <legend>{t('Тип', 'Type')}</legend>
-            <div className="tt-chips" role="radiogroup" aria-label={t('Тип занятия', 'Class type')}>
+            <legend>{t('Категория', 'Category')}</legend>
+            <div className="tt-chips" role="radiogroup" aria-label={t('Категория', 'Category')}>
               {KINDS.map((k) => (
                 <button
                   key={k.value}
@@ -214,25 +214,15 @@ export default function TimetableEditor({ value, entries = [], onClose, onSaved 
             </p>
           )}
 
-          <div className="form-grid">
-            <label className="field">
-              {t('Аудитория', 'Room')}
-              <Input
-                maxLength={60}
-                placeholder="C1.3.305"
-                value={draft.room}
-                onChange={(e) => set({ room: e.target.value })}
-              />
-            </label>
-            <label className="field">
-              {t('Преподаватель', 'Teacher')}
-              <Input
-                maxLength={80}
-                value={draft.teacher}
-                onChange={(e) => set({ teacher: e.target.value })}
-              />
-            </label>
-          </div>
+          <label className="field">
+            {t('Место', 'Place')}
+            <Input
+              maxLength={60}
+              placeholder={t('Дом, универ, спортзал…', 'Home, university, gym…')}
+              value={draft.room}
+              onChange={(e) => set({ room: e.target.value })}
+            />
+          </label>
 
           <fieldset className="field color-field">
             <legend>{t('Цвет', 'Colour')}</legend>
@@ -266,7 +256,7 @@ export default function TimetableEditor({ value, entries = [], onClose, onSaved 
               className="input"
               rows={2}
               maxLength={500}
-              placeholder={t('Ссылка на Zoom, что взять с собой…', 'Zoom link, what to bring…')}
+              placeholder={t('Детали, что взять с собой…', 'Details, what to bring…')}
               value={draft.note}
               onChange={(e) => set({ note: e.target.value })}
             />
@@ -315,14 +305,14 @@ export default function TimetableEditor({ value, entries = [], onClose, onSaved 
             <div className="delete-confirm" role="alertdialog">
               <p>
                 {t(
-                  'Пара исчезнет из расписания на каждой неделе. Удалить?',
-                  'The class disappears from every week. Delete it?',
+                  'Дело исчезнет из расписания на каждой неделе. Удалить?',
+                  'The item disappears from every week. Delete it?',
                 )}
               </p>
               <div className="dialog-actions">
                 <Button onClick={() => setConfirming(false)}>{t('Отмена', 'Cancel')}</Button>
                 <Button variant="danger" onClick={remove} disabled={busy}>
-                  {t('Удалить пару', 'Delete class')}
+                  {t('Удалить дело', 'Delete item')}
                 </Button>
               </div>
             </div>

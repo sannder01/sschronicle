@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { validateTimetableEntry } from '../lib/timetable.js'
+import { validateDoneDate, validateTimetableEntry } from '../lib/timetable.js'
 
 const validEntry = {
   weekday: 1,
@@ -12,7 +12,7 @@ const validEntry = {
 test('timetable validation accepts defaults and every weekday', () => {
   assert.deepEqual(validateTimetableEntry(validEntry), {
     ...validEntry,
-    kind: 'lecture',
+    kind: 'other',
     room: '',
     teacher: '',
     note: '',
@@ -69,7 +69,7 @@ test('timetable text fields enforce their length limits', () => {
 })
 
 test('timetable kind and color accept only supported values', () => {
-  for (const kind of ['lecture', 'practice', 'lab', 'seminar', 'other'])
+  for (const kind of ['study', 'work', 'sport', 'food', 'rest', 'other'])
     assert.equal(validateTimetableEntry({ ...validEntry, kind }).kind, kind)
   for (const color of [
     'accent',
@@ -85,6 +85,27 @@ test('timetable kind and color accept only supported values', () => {
     assert.equal(validateTimetableEntry({ ...validEntry, color }).color, color)
   assert.throws(() => validateTimetableEntry({ ...validEntry, kind: 'unknown' }), { status: 400 })
   assert.throws(() => validateTimetableEntry({ ...validEntry, color: 'purple' }), { status: 400 })
+})
+
+test('done date must match the entry weekday and stay in the local date window', () => {
+  const now = new Date('2026-11-21T12:00:00Z') // Saturday
+  assert.equal(validateDoneDate('2026-11-21', 6, 'UTC', now), '2026-11-21')
+  assert.equal(validateDoneDate('2026-11-22', 7, 'UTC', now), '2026-11-22')
+  assert.equal(validateDoneDate('2026-10-22', 4, 'UTC', now), '2026-10-22')
+  const nearMidnight = new Date('2026-11-21T23:30:00Z')
+  assert.equal(validateDoneDate('2026-11-23', 1, 'Pacific/Kiritimati', nearMidnight), '2026-11-23')
+  assert.throws(() => validateDoneDate('2026-11-23', 1, 'UTC', nearMidnight), { status: 400 })
+  assert.equal(
+    validateDoneDate('2026-11-22', 7, 'Pacific/Kiritimati', new Date('2026-11-21T12:00:00Z')),
+    '2026-11-22',
+  )
+  for (const [day, weekday] of [
+    ['2026-11-21', 5], // wrong weekday
+    ['2026-10-21', 3], // 31 days in the past
+    ['2026-11-23', 1], // 2 days in the future
+    ['not-a-date', 6],
+  ])
+    assert.throws(() => validateDoneDate(day, weekday, 'UTC', now), { status: 400 })
 })
 
 test('timetable partial updates validate supplied fields and reject empty patches', () => {

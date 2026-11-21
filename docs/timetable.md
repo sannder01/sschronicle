@@ -35,3 +35,32 @@ Overlapping entries are allowed (the UI warns).
 Entry shape: `{id, weekday, start_min, end_min, title, kind, room, teacher, note, color, created_at, updated_at}` (numbers as numbers).
 
 Account export adds `timetable_entries`.
+
+## Daily routine update (migration `migrations/013_routine.sql`)
+
+The timetable is a personal **daily routine** (not only classes).
+
+- `kind` values become categories: `study`, `work`, `sport`, `food`, `rest`, `other`
+  (default `other`). The migration maps old values: lecture/practice/lab/seminar → `study`,
+  `other` stays; then replaces the CHECK constraint (drop the old one by looking up its name in
+  `pg_constraint` for `timetable_entries` and the `kind` column; do not assume the name).
+  Column default becomes `'other'`. `room` is shown as "place"; `teacher` stays but the UI no
+  longer uses it.
+- Done marks per date:
+
+```
+timetable_done
+  entry_id INTEGER NOT NULL → timetable_entries(id) ON DELETE CASCADE
+  user_id TEXT NOT NULL → users ON DELETE CASCADE
+  day DATE NOT NULL
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  PRIMARY KEY (entry_id, day)
+```
+Index on (user_id, day).
+
+| Method & path | Body | Response |
+|---|---|---|
+| GET `/api/timetable/done?day=YYYY-MM-DD` | — | `{day, entry_ids:[...]}` marks of the user for that date |
+| PUT `/api/timetable/:id/done` | `{day, done: boolean}` | `{day, entry_id, done}` — idempotent. 400 `VALIDATION_ERROR` if `day`'s weekday (ISO, Monday = 1) is not the entry's weekday, or `day` is more than 1 day in the future or more than 30 days in the past (compare with the user's local date from `users.settings->>'timezone'`, default UTC; see `lib/dates.js` helpers). 404 if the entry is not the user's. |
+
+Export adds `timetable_done`.

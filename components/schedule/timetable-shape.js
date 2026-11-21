@@ -1,4 +1,4 @@
-// Pure helpers for the weekly timetable (shared by the page and the editor).
+// Pure helpers for the weekly daily-routine schedule (shared by the page and the editor).
 export { fmt, parseTime } from './time'
 
 export const DAYS = [
@@ -11,14 +11,15 @@ export const DAYS = [
   { n: 7, ru: 'Вс', en: 'Sun', ruFull: 'Воскресенье', enFull: 'Sunday' },
 ]
 export const KINDS = [
-  { value: 'lecture', ru: 'Лекция', en: 'Lecture' },
-  { value: 'practice', ru: 'Практика', en: 'Practice' },
-  { value: 'lab', ru: 'Лаба', en: 'Lab' },
-  { value: 'seminar', ru: 'Семинар', en: 'Seminar' },
+  { value: 'study', ru: 'Учёба', en: 'Study' },
+  { value: 'work', ru: 'Работа', en: 'Work' },
+  { value: 'sport', ru: 'Спорт', en: 'Sport' },
+  { value: 'food', ru: 'Еда', en: 'Meals' },
+  { value: 'rest', ru: 'Отдых', en: 'Rest' },
   { value: 'other', ru: 'Другое', en: 'Other' },
 ]
 export const kindLabel = (value, t) => {
-  const k = KINDS.find((x) => x.value === value) || KINDS[4]
+  const k = KINDS.find((x) => x.value === value) || KINDS[KINDS.length - 1]
   return t(k.ru, k.en)
 }
 
