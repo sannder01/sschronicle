@@ -769,7 +769,9 @@
   color: var(--muted);
 }
 .lm-tree-status {
+  /* the Select trigger is an .input (width: 100%); in a row it must stay compact */
   flex: none;
+  width: 160px;
   min-width: 132px;
 }
 
@@ -1112,6 +1114,7 @@
   }
   .lm-tree-status {
     flex: 1 1 100%;
+    width: 100%;
   }
   .lm-ai-modes,
   .lm-node-grid {
