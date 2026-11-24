@@ -72,8 +72,8 @@ export function errorText(error, t, fallback) {
       return t('AI-помощник пока не настроен', 'The AI assistant is not set up yet')
     case 'AI_TIMEOUT':
       return t(
-        'Помощник слишком долго думал. Попробуйте ещё раз',
-        'The assistant took too long. Try again',
+        'Помощник слишком долго думал. Попробуйте ещё раз или выберите более быструю модель (flash или flash-lite) в профиле → AI-помощник',
+        'The assistant took too long. Try again or pick a faster model (flash or flash-lite) in Profile → AI assistant',
       )
     case 'AI_BAD_RESPONSE':
       return t(

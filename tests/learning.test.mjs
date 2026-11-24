@@ -278,3 +278,97 @@ test('AI module asks once more when a structure answer has no topics', async () 
     else process.env.GROQ_API_KEY = previous
   }
 })
+
+test('AI module lets a slow answer finish within the shared time budget', async (t) => {
+  // the old per-call limit was 25 s; a full Gemini map can take longer and still be fine
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] })
+  const good = '{"summary":"ok","nodes":[{"ref":"new:a","kind":"topic","title":"A"}],"edges":[]}'
+  let aborted = false
+  const pending = requestLearningSuggestion({
+    mode: 'structure',
+    context: {},
+    config: testConfig,
+    fetchImpl: (_url, options) =>
+      new Promise((resolve, reject) => {
+        options.signal.addEventListener('abort', () => {
+          aborted = true
+          reject(Object.assign(new Error('Aborted'), { name: 'AbortError' }))
+        })
+        setTimeout(
+          () =>
+            resolve({
+              ok: true,
+              status: 200,
+              json: async () => ({ choices: [{ message: { content: good } }] }),
+            }),
+          30000,
+        )
+      }),
+  })
+  t.mock.timers.tick(30000)
+  const result = await pending
+  assert.equal(aborted, false)
+  assert.equal(result.nodes.length, 1)
+})
+
+test('AI module skips the empty-answer retry when too little time is left', async () => {
+  let clock = 0
+  let calls = 0
+  const result = await requestLearningSuggestion({
+    mode: 'structure',
+    context: {},
+    config: testConfig,
+    now: () => clock,
+    deadline: 50000,
+    fetchImpl: async () => {
+      calls++
+      clock += 40000 // the first answer used most of the budget
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          choices: [{ message: { content: '{"summary":"only words","nodes":[],"edges":[]}' } }],
+        }),
+      }
+    },
+  })
+  assert.equal(calls, 1)
+  assert.equal(result.nodes.length, 0)
+})
+
+test('AI module retry keeps the same deadline and does not wait past it', async () => {
+  let clock = 0
+  let calls = 0
+  await assert.rejects(
+    requestLearningSuggestion({
+      mode: 'structure',
+      context: {},
+      config: testConfig,
+      now: () => clock,
+      deadline: 50000,
+      fetchImpl: async () => {
+        calls++
+        if (calls === 1) {
+          clock = 20000 // empty answer with 30 s left: worth one more try
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              choices: [{ message: { content: '{"summary":"only words","nodes":[],"edges":[]}' } }],
+            }),
+          }
+        }
+        clock = 49500 // busy right before the shared deadline: a 1 s wait would overrun it
+        return {
+          ok: false,
+          status: 429,
+          headers: { get: (name) => (name === 'retry-after' ? '1' : null) },
+          json: async () => ({}),
+          text: async () => '',
+        }
+      },
+    }),
+    { code: 'AI_BUSY' },
+  )
+  assert.equal(calls, 2)
+})
